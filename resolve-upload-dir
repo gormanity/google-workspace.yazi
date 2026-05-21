@@ -1,0 +1,149 @@
+#!/bin/sh
+
+folder_id=
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--upload-dir-id)
+			if [ "$#" -lt 2 ]; then
+				printf '%s\n' "--upload-dir-id requires a value" >&2
+				exit 1
+			fi
+			folder_id=$2
+			shift 2
+			;;
+		--)
+			shift
+			break
+			;;
+		-*)
+			printf '%s\n' "Unknown option: $1" >&2
+			exit 1
+			;;
+		*)
+			break
+			;;
+	esac
+done
+
+local_my_drive_root() {
+	for root in "$HOME"/Library/CloudStorage/GoogleDrive-*/My\ Drive; do
+		if [ -d "$root" ]; then
+			printf '%s\n' "$root"
+			return 0
+		fi
+	done
+
+	printf '%s\n' "Could not find local Google Drive root. Confirm Google Drive for Desktop is running." >&2
+	return 1
+}
+
+configured_upload_dir_id() {
+	config_home=${YAZI_CONFIG_HOME:-"$HOME/.config/yazi"}
+	config=$config_home/yazi.toml
+
+	if [ ! -f "$config" ] || ! command -v python3 >/dev/null 2>&1; then
+		return 1
+	fi
+
+	python3 - "$config" <<'PY'
+import shlex
+import sys
+import tomllib
+
+config = sys.argv[1]
+with open(config, "rb") as f:
+    data = tomllib.load(f)
+
+for opener in data.get("opener", {}).get("google_workspace", []):
+    run = opener.get("run", "")
+    try:
+        parts = shlex.split(run)
+    except ValueError:
+        continue
+
+    for i, part in enumerate(parts):
+        if part == "--upload-dir-id" and i + 1 < len(parts):
+            print(parts[i + 1])
+            raise SystemExit(0)
+        if part.startswith("--upload-dir-id="):
+            print(part.split("=", 1)[1])
+            raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+}
+
+if [ -z "$folder_id" ]; then
+	folder_id=$(configured_upload_dir_id) || folder_id=
+fi
+
+if [ -z "$folder_id" ]; then
+	local_my_drive_root
+	exit $?
+fi
+
+if ! command -v gws >/dev/null 2>&1; then
+	printf '%s\n' "gws is not installed." >&2
+	exit 1
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+	printf '%s\n' "jq is not installed." >&2
+	exit 1
+fi
+
+names=
+current=$folder_id
+
+while [ -n "$current" ]; do
+	params=$(jq -cn --arg fileId "$current" '{fileId: $fileId, fields: "id,name,parents,mimeType"}')
+	result=$(gws drive files get --params "$params" 2>&1) || {
+		printf '%s\n' "$result" >&2
+		exit 1
+	}
+
+	json=$(printf '%s\n' "$result" | sed -n '/^{/,$p')
+	if ! printf '%s\n' "$json" | jq -e . >/dev/null 2>&1; then
+		printf '%s\n' "$result" >&2
+		exit 1
+	fi
+
+	mime_type=$(printf '%s\n' "$json" | jq -r '.mimeType // empty')
+	name=$(printf '%s\n' "$json" | jq -r '.name // empty')
+	parent=$(printf '%s\n' "$json" | jq -r '.parents[0] // empty')
+
+	if [ "$current" = "$folder_id" ] && [ "$mime_type" != "application/vnd.google-apps.folder" ]; then
+		printf '%s\n' "Configured Google Drive upload ID does not point to a Drive folder." >&2
+		exit 1
+	fi
+
+	if [ -z "$name" ] || [ "$name" = "My Drive" ]; then
+		break
+	fi
+
+	if [ -z "$names" ]; then
+		names=$name
+	else
+		names=$name/$names
+	fi
+
+	current=$parent
+done
+
+for root in "$(local_my_drive_root)"; do
+	if [ -d "$root" ]; then
+		path=$root
+		if [ -n "$names" ]; then
+			path=$path/$names
+		fi
+
+		if [ -d "$path" ]; then
+			printf '%s\n' "$path"
+			exit 0
+		fi
+	fi
+done
+
+printf '%s\n' "Could not find the Drive folder locally. Confirm Google Drive for Desktop has synced it." >&2
+exit 1

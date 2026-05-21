@@ -1,0 +1,271 @@
+#!/bin/sh
+
+ASSUME_YES=
+UPLOAD_DIR=
+CONVERT=
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--assume-yes)
+			ASSUME_YES=1
+			shift
+			;;
+		--convert)
+			CONVERT=1
+			shift
+			;;
+		--upload-dir-id)
+			if [ "$#" -lt 2 ]; then
+				printf '%s\n' "--upload-dir-id requires a value" >&2
+				exit 1
+			fi
+			UPLOAD_DIR=$2
+			shift 2
+			;;
+		--)
+			shift
+			break
+			;;
+		-*)
+			printf '%s\n' "Unknown option: $1" >&2
+			exit 1
+			;;
+		*)
+			break
+			;;
+	esac
+done
+
+notify() {
+	title=$1
+	message=$2
+
+	/usr/bin/osascript \
+		-e 'on run argv' \
+		-e 'display notification item 2 of argv with title item 1 of argv' \
+		-e 'end run' \
+		"$title" "$message" >/dev/null 2>&1 || printf '%s: %s\n' "$title" "$message" >&2
+}
+
+confirm_upload() {
+	name=${1##*/}
+
+	if [ "$ASSUME_YES" = "1" ]; then
+		return 0
+	fi
+
+	/usr/bin/osascript \
+		-e 'on run argv' \
+		-e 'set fileName to item 1 of argv' \
+		-e 'display dialog "Google Workspace cannot open this local file directly. Upload “" & fileName & "” to Google Drive?" with title "Google Workspace" buttons {"Cancel", "Upload"} default button "Upload" cancel button "Cancel"' \
+		-e 'end run' \
+		"$name" >/dev/null 2>&1
+}
+
+extension() {
+	name=${1##*/}
+	ext=${name##*.}
+
+	if [ "$name" = "$ext" ]; then
+		return 1
+	fi
+
+	printf '%s\n' "$ext" | tr '[:upper:]' '[:lower:]'
+}
+
+workspace_url() {
+	/usr/bin/plutil -extract url raw -o - "$1" 2>/dev/null
+}
+
+open_url() {
+	open "$1"
+}
+
+target_mime() {
+	case "$1" in
+		xsv)
+			printf '%s\n' "application/vnd.google-apps.spreadsheet"
+			;;
+		doc | docx | odt | rtf)
+			if [ "$CONVERT" = "1" ]; then
+				printf '%s\n' "application/vnd.google-apps.document"
+			else
+				return 1
+			fi
+			;;
+		odp | pot | potx | pps | ppsx | ppt | pptx)
+			if [ "$CONVERT" = "1" ]; then
+				printf '%s\n' "application/vnd.google-apps.presentation"
+			else
+				return 1
+			fi
+			;;
+		ods | xls | xlsm | xlsx)
+			if [ "$CONVERT" = "1" ]; then
+				printf '%s\n' "application/vnd.google-apps.spreadsheet"
+			else
+				return 1
+			fi
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+upload_content_type() {
+	case "$1" in
+		doc)
+			printf '%s\n' "application/msword"
+			;;
+		docx)
+			printf '%s\n' "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+			;;
+		odp)
+			printf '%s\n' "application/vnd.oasis.opendocument.presentation"
+			;;
+		ods)
+			printf '%s\n' "application/vnd.oasis.opendocument.spreadsheet"
+			;;
+		odt)
+			printf '%s\n' "application/vnd.oasis.opendocument.text"
+			;;
+		pot | pps | ppt)
+			printf '%s\n' "application/vnd.ms-powerpoint"
+			;;
+		potx | ppsx | pptx)
+			printf '%s\n' "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+			;;
+		rtf)
+			printf '%s\n' "application/rtf"
+			;;
+		xls)
+			printf '%s\n' "application/vnd.ms-excel"
+			;;
+		xlsm)
+			printf '%s\n' "application/vnd.ms-excel.sheet.macroEnabled.12"
+			;;
+		xlsx)
+			printf '%s\n' "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+			;;
+		xsv)
+			printf '%s\n' "text/csv"
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+upload_and_open() {
+	path=$1
+	ext=$2
+	name=${path##*/}
+	stem=${name%.*}
+	dir=${path%/*}
+	target=$(target_mime "$ext") || target=
+	content_type=$(upload_content_type "$ext") || return 1
+
+	if ! command -v gws >/dev/null 2>&1; then
+		notify "Google Workspace" "Install googleworkspace-cli and run gws auth login first."
+		return 1
+	fi
+
+	if ! command -v jq >/dev/null 2>&1; then
+		notify "Google Workspace" "jq is required to build and parse the Drive upload request."
+		return 1
+	fi
+
+	if [ -n "$UPLOAD_DIR" ] && [ -n "$target" ]; then
+		metadata=$(jq -cn --arg name "$stem" --arg mimeType "$target" --arg parent "$UPLOAD_DIR" '{name: $name, mimeType: $mimeType, parents: [$parent]}')
+	elif [ -n "$UPLOAD_DIR" ]; then
+		metadata=$(jq -cn --arg name "$name" --arg parent "$UPLOAD_DIR" '{name: $name, parents: [$parent]}')
+	elif [ -n "$target" ]; then
+		metadata=$(jq -cn --arg name "$stem" --arg mimeType "$target" '{name: $name, mimeType: $mimeType}')
+	else
+		metadata=$(jq -cn --arg name "$name" '{name: $name}')
+	fi
+	params='{"fields":"id,name,mimeType,webViewLink"}'
+	if [ "$dir" = "$path" ]; then
+		dir=.
+	fi
+
+	result=$(cd "$dir" && gws drive files create --params "$params" --json "$metadata" --upload "$name" --upload-content-type "$content_type" 2>&1)
+	code=$?
+
+	if [ "$code" -ne 0 ]; then
+		printf '%s\n' "$result" >&2
+		notify "Google Workspace" "Upload failed. Check gws authentication and Drive permissions."
+		return 1
+	fi
+
+	json=$(printf '%s\n' "$result" | sed -n '/^{/,$p')
+	if ! printf '%s\n' "$json" | jq -e . >/dev/null 2>&1; then
+		printf '%s\n' "$result" >&2
+		notify "Google Workspace" "Upload succeeded, but gws returned an unreadable response."
+		return 1
+	fi
+
+	url=$(printf '%s\n' "$json" | jq -r '.webViewLink // empty')
+	id=$(printf '%s\n' "$json" | jq -r '.id // empty')
+
+	if [ -z "$url" ] && [ -n "$id" ] && [ -n "$target" ]; then
+		case "$target" in
+			application/vnd.google-apps.document)
+				url="https://docs.google.com/document/d/$id/edit"
+				;;
+			application/vnd.google-apps.presentation)
+				url="https://docs.google.com/presentation/d/$id/edit"
+				;;
+			application/vnd.google-apps.spreadsheet)
+				url="https://docs.google.com/spreadsheets/d/$id/edit"
+				;;
+		esac
+	fi
+
+	if [ -z "$url" ] && [ -n "$id" ]; then
+		url="https://drive.google.com/file/d/$id/view"
+	fi
+
+	if [ -z "$url" ]; then
+		notify "Google Workspace" "Upload succeeded, but no openable URL was returned."
+		return 1
+	fi
+
+	open_url "$url"
+}
+
+if [ "$#" -eq 0 ]; then
+	notify "Google Workspace" "No file was provided."
+	exit 1
+fi
+
+status=0
+
+for path do
+	ext=$(extension "$path") || ext=
+
+	case "$ext" in
+		gdoc | gdraw | gform | glink | gmap | gsheet | gsite | gslides)
+			url=$(workspace_url "$path")
+			if [ -n "$url" ]; then
+				open_url "$url" || status=1
+			else
+				open_url "$path" || status=1
+			fi
+			;;
+		doc | docx | odp | ods | odt | pot | potx | pps | ppsx | ppt | pptx | rtf | xls | xlsm | xlsx | xsv)
+			if confirm_upload "$path"; then
+				upload_and_open "$path" "$ext" || status=1
+			else
+				status=1
+			fi
+			;;
+		*)
+			notify "Google Workspace" "Unsupported file type: $(basename "$path")"
+			status=1
+			;;
+	esac
+done
+
+exit "$status"
