@@ -10,8 +10,7 @@ default for repo operations.
 
 ## Goal
 
-Provide a Yazi opener/plugin for Google Workspace and Google Drive workflows on
-macOS.
+Provide a Yazi opener/plugin for Google Workspace and Google Drive workflows.
 
 The plugin should:
 
@@ -45,6 +44,11 @@ The plugin should:
   `google_workspace` opener command in `yazi.toml`.
 - `resolve-upload-dir` reads `--upload-dir-id` from that opener command in
   `~/.config/yazi/yazi.toml`; if absent, it defaults to local My Drive root.
+- `resolve-upload-dir` also reads `--drive-root` from the opener command for
+  non-macOS, WSL, or custom local Drive sync/mount locations.
+- `open` and `resolve-upload-dir` support either `gws` from
+  `googleworkspace-cli` or `gog` from `gogcli`; `--drive-cli auto` prefers `gws`
+  and falls back to `gog`.
 - `plugin google-workspace` without arguments should delegate to Yazi's built-in
   `open`, so it also uses `[open]`/`[opener]` from `yazi.toml`.
 - `plugin google-workspace cd-upload-dir` should navigate to the configured
@@ -57,13 +61,16 @@ Recommended `yazi.toml` shape:
 ```toml
 [opener]
 google_workspace = [
-  { run = '~/.config/yazi/plugins/google-workspace.yazi/open --upload-dir-id "<Drive folder ID>" "$@"', desc = "Google Workspace", for = "macos", orphan = true },
+  { run = '~/.config/yazi/plugins/google-workspace.yazi/open --upload-dir-id "<Drive folder ID>" "$@"', desc = "Google Workspace", orphan = true },
 ]
 ```
 
 Supported opener flags:
 
 - `--upload-dir-id <ID>`: Google Drive folder ID for uploads.
+- `--drive-root <PATH>`: local My Drive root for `cd-upload-dir` on non-macOS,
+  WSL, or custom Drive sync/mount setups.
+- `--drive-cli <auto|gws|gog>`: Drive CLI backend. Defaults to `auto`.
 - `--convert`: opt into converting supported Office files to native Google
   Workspace files.
 - `--assume-yes`: skip the upload confirmation dialog.
@@ -84,16 +91,25 @@ specifically decided conversion must be opt-in.
 
 Runtime dependencies:
 
-- macOS
-- Google Drive for Desktop, for local `~/Library/CloudStorage/.../My Drive`
-  navigation.
-- `googleworkspace-cli`, providing `gws`.
+- Yazi.
+- One Drive CLI: `googleworkspace-cli`, providing `gws`, or `gogcli`, providing
+  `gog`.
 - `jq`.
-- `python3`, used by `resolve-upload-dir` to parse `yazi.toml`.
-- `plutil`, available on macOS, for reading Google shortcut files.
+- `python3`, used to parse Google shortcut files, infer MIME types, and parse
+  `yazi.toml`.
+- A local Drive sync folder or mount for `cd-upload-dir`.
 
-`gws auth login` must be completed with Drive access before upload/conversion
-workflows.
+Platform-specific runtime behavior:
+
+- macOS uses `open` for URLs and `osascript` for notifications and upload
+  confirmations. The local Google Drive for Desktop root is auto-detected under
+  `~/Library/CloudStorage`.
+- Linux uses `xdg-open` or `gio` for URLs. `notify-send`, `zenity`, and
+  `kdialog` are optional notification/confirmation helpers. Configure
+  `--drive-root` for local Drive folder or mount navigation.
+
+Drive authentication must be completed in the chosen CLI before
+upload/conversion workflows.
 
 ## Validation Commands
 
