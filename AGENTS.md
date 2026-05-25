@@ -27,8 +27,8 @@ The plugin should:
 
 - `main.lua`: Yazi plugin entrypoint.
 - `open`: packaged executable used by the Yazi `[opener]` command.
-- `resolve-upload-dir`: packaged executable used by the bindable
-  `cd-upload-dir` plugin command.
+- `resolve-upload-dir`: packaged executable used by the bindable `cd-upload-dir`
+  plugin command.
 - `README.md`: current user-facing docs.
 - `LICENSE`: MIT license.
 
@@ -96,6 +96,13 @@ Runtime dependencies:
 workflows.
 
 ## Validation Commands
+
+When any Markdown file is updated, run Prettier with the user's Neovim Markdown
+formatter settings:
+
+```sh
+npx --yes prettier --config /Users/jmgorman/.dotfiles/prettier/.prettierrc.yaml --write <markdown-file>
+```
 
 Run these after edits:
 
