@@ -1,6 +1,8 @@
 #!/bin/sh
 
 folder_id=
+drive_root=
+drive_cli=auto
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -10,6 +12,22 @@ while [ "$#" -gt 0 ]; do
 				exit 1
 			fi
 			folder_id=$2
+			shift 2
+			;;
+		--drive-root)
+			if [ "$#" -lt 2 ]; then
+				printf '%s\n' "--drive-root requires a value" >&2
+				exit 1
+			fi
+			drive_root=$2
+			shift 2
+			;;
+		--drive-cli)
+			if [ "$#" -lt 2 ]; then
+				printf '%s\n' "--drive-cli requires a value" >&2
+				exit 1
+			fi
+			drive_cli=$2
 			shift 2
 			;;
 		--)
@@ -26,19 +44,53 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
-local_my_drive_root() {
-	for root in "$HOME"/Library/CloudStorage/GoogleDrive-*/My\ Drive; do
+expand_path() {
+	if ! command -v python3 >/dev/null 2>&1; then
+		printf '%s\n' "$1"
+		return 0
+	fi
+
+	python3 - "$1" <<'PY'
+import os
+import sys
+
+print(os.path.expanduser(os.path.expandvars(sys.argv[1])))
+PY
+}
+
+local_drive_root() {
+	if [ -n "$drive_root" ]; then
+		root=$(expand_path "$drive_root")
 		if [ -d "$root" ]; then
 			printf '%s\n' "$root"
 			return 0
 		fi
-	done
 
-	printf '%s\n' "Could not find local Google Drive root. Confirm Google Drive for Desktop is running." >&2
+		printf '%s\n' "Configured local Drive root does not exist: $root" >&2
+		return 1
+	fi
+
+	case "$(uname -s 2>/dev/null)" in
+		Darwin)
+			for root in "$HOME"/Library/CloudStorage/GoogleDrive-*/My\ Drive; do
+				if [ -d "$root" ]; then
+					printf '%s\n' "$root"
+					return 0
+				fi
+			done
+
+			printf '%s\n' "Could not find local Google Drive root. Confirm Google Drive for Desktop is running." >&2
+			;;
+		*)
+			printf '%s\n' "Could not find local Google Drive root. Configure --drive-root in the google_workspace opener." >&2
+			;;
+	esac
+
 	return 1
 }
 
-configured_upload_dir_id() {
+configured_opener_value() {
+	flag=$1
 	config_home=${YAZI_CONFIG_HOME:-"$HOME/.config/yazi"}
 	config=$config_home/yazi.toml
 
@@ -46,12 +98,13 @@ configured_upload_dir_id() {
 		return 1
 	fi
 
-	python3 - "$config" <<'PY'
+	python3 - "$config" "$flag" <<'PY'
 import shlex
 import sys
 import tomllib
 
 config = sys.argv[1]
+flag = sys.argv[2]
 with open(config, "rb") as f:
     data = tomllib.load(f)
 
@@ -63,10 +116,10 @@ for opener in data.get("opener", {}).get("google_workspace", []):
         continue
 
     for i, part in enumerate(parts):
-        if part == "--upload-dir-id" and i + 1 < len(parts):
+        if part == flag and i + 1 < len(parts):
             print(parts[i + 1])
             raise SystemExit(0)
-        if part.startswith("--upload-dir-id="):
+        if part.startswith(flag + "="):
             print(part.split("=", 1)[1])
             raise SystemExit(0)
 
@@ -75,17 +128,20 @@ PY
 }
 
 if [ -z "$folder_id" ]; then
-	folder_id=$(configured_upload_dir_id) || folder_id=
+	folder_id=$(configured_opener_value --upload-dir-id) || folder_id=
+fi
+
+if [ -z "$drive_root" ]; then
+	drive_root=$(configured_opener_value --drive-root) || drive_root=
+fi
+
+if [ "$drive_cli" = "auto" ]; then
+	drive_cli=$(configured_opener_value --drive-cli) || drive_cli=auto
 fi
 
 if [ -z "$folder_id" ]; then
-	local_my_drive_root
+	local_drive_root
 	exit $?
-fi
-
-if ! command -v gws >/dev/null 2>&1; then
-	printf '%s\n' "gws is not installed." >&2
-	exit 1
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
@@ -93,12 +149,65 @@ if ! command -v jq >/dev/null 2>&1; then
 	exit 1
 fi
 
+drive_cli() {
+	case "$drive_cli" in
+		gws)
+			command -v gws >/dev/null 2>&1 && {
+				printf '%s\n' "gws"
+				return 0
+			}
+			printf '%s\n' "gws is not installed." >&2
+			return 1
+			;;
+		gog)
+			command -v gog >/dev/null 2>&1 && {
+				printf '%s\n' "gog"
+				return 0
+			}
+			printf '%s\n' "gog is not installed." >&2
+			return 1
+			;;
+		auto)
+			if command -v gws >/dev/null 2>&1; then
+				printf '%s\n' "gws"
+				return 0
+			fi
+			if command -v gog >/dev/null 2>&1; then
+				printf '%s\n' "gog"
+				return 0
+			fi
+			printf '%s\n' "Install googleworkspace-cli or gogcli and complete Drive auth first." >&2
+			return 1
+			;;
+		*)
+			printf '%s\n' "Unsupported Drive CLI: $drive_cli" >&2
+			return 1
+			;;
+	esac
+}
+
+drive_get() {
+	case "$1" in
+		gws)
+			params=$(jq -cn --arg fileId "$2" '{fileId: $fileId, fields: "id,name,parents,mimeType"}')
+			gws drive files get --params "$params"
+			;;
+		gog)
+			gog drive get "$2" --fields "id,name,parents,mimeType" --json --results-only --no-input
+			;;
+	esac
+}
+
+json_field() {
+	jq -r "$1 // .result$1 // .data$1 // empty"
+}
+
+cli=$(drive_cli) || exit 1
 names=
 current=$folder_id
 
 while [ -n "$current" ]; do
-	params=$(jq -cn --arg fileId "$current" '{fileId: $fileId, fields: "id,name,parents,mimeType"}')
-	result=$(gws drive files get --params "$params" 2>&1) || {
+	result=$(drive_get "$cli" "$current" 2>&1) || {
 		printf '%s\n' "$result" >&2
 		exit 1
 	}
@@ -109,9 +218,9 @@ while [ -n "$current" ]; do
 		exit 1
 	fi
 
-	mime_type=$(printf '%s\n' "$json" | jq -r '.mimeType // empty')
-	name=$(printf '%s\n' "$json" | jq -r '.name // empty')
-	parent=$(printf '%s\n' "$json" | jq -r '.parents[0] // empty')
+	mime_type=$(printf '%s\n' "$json" | json_field ".mimeType")
+	name=$(printf '%s\n' "$json" | json_field ".name")
+	parent=$(printf '%s\n' "$json" | jq -r '.parents[0] // .result.parents[0] // .data.parents[0] // empty')
 
 	if [ "$current" = "$folder_id" ] && [ "$mime_type" != "application/vnd.google-apps.folder" ]; then
 		printf '%s\n' "Configured Google Drive upload ID does not point to a Drive folder." >&2
@@ -131,19 +240,16 @@ while [ -n "$current" ]; do
 	current=$parent
 done
 
-for root in "$(local_my_drive_root)"; do
-	if [ -d "$root" ]; then
-		path=$root
-		if [ -n "$names" ]; then
-			path=$path/$names
-		fi
+root=$(local_drive_root) || exit $?
+path=$root
+if [ -n "$names" ]; then
+	path=$path/$names
+fi
 
-		if [ -d "$path" ]; then
-			printf '%s\n' "$path"
-			exit 0
-		fi
-	fi
-done
+if [ -d "$path" ]; then
+	printf '%s\n' "$path"
+	exit 0
+fi
 
 printf '%s\n' "Could not find the Drive folder locally. Confirm Google Drive for Desktop has synced it." >&2
 exit 1

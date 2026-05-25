@@ -3,6 +3,8 @@
 ASSUME_YES=
 UPLOAD_DIR=
 CONVERT=
+DRIVE_ROOT=
+DRIVE_CLI=auto
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -20,6 +22,22 @@ while [ "$#" -gt 0 ]; do
 				exit 1
 			fi
 			UPLOAD_DIR=$2
+			shift 2
+			;;
+		--drive-root)
+			if [ "$#" -lt 2 ]; then
+				printf '%s\n' "--drive-root requires a value" >&2
+				exit 1
+			fi
+			DRIVE_ROOT=$2
+			shift 2
+			;;
+		--drive-cli)
+			if [ "$#" -lt 2 ]; then
+				printf '%s\n' "--drive-cli requires a value" >&2
+				exit 1
+			fi
+			DRIVE_CLI=$2
 			shift 2
 			;;
 		--)
@@ -40,11 +58,19 @@ notify() {
 	title=$1
 	message=$2
 
-	/usr/bin/osascript \
-		-e 'on run argv' \
-		-e 'display notification item 2 of argv with title item 1 of argv' \
-		-e 'end run' \
-		"$title" "$message" >/dev/null 2>&1 || printf '%s: %s\n' "$title" "$message" >&2
+	if command -v osascript >/dev/null 2>&1; then
+		osascript \
+			-e 'on run argv' \
+			-e 'display notification item 2 of argv with title item 1 of argv' \
+			-e 'end run' \
+			"$title" "$message" >/dev/null 2>&1 && return 0
+	fi
+
+	if command -v notify-send >/dev/null 2>&1; then
+		notify-send "$title" "$message" >/dev/null 2>&1 && return 0
+	fi
+
+	printf '%s: %s\n' "$title" "$message" >&2
 }
 
 confirm_upload() {
@@ -54,12 +80,38 @@ confirm_upload() {
 		return 0
 	fi
 
-	/usr/bin/osascript \
-		-e 'on run argv' \
-		-e 'set fileName to item 1 of argv' \
-		-e 'display dialog "Google Workspace cannot open this local file directly. Upload “" & fileName & "” to Google Drive?" with title "Google Workspace" buttons {"Cancel", "Upload"} default button "Upload" cancel button "Cancel"' \
-		-e 'end run' \
-		"$name" >/dev/null 2>&1
+	if command -v osascript >/dev/null 2>&1; then
+		osascript \
+			-e 'on run argv' \
+			-e 'set fileName to item 1 of argv' \
+			-e 'display dialog "Google Workspace cannot open this local file directly. Upload “" & fileName & "” to Google Drive?" with title "Google Workspace" buttons {"Cancel", "Upload"} default button "Upload" cancel button "Cancel"' \
+			-e 'end run' \
+			"$name" >/dev/null 2>&1
+		return $?
+	fi
+
+	if command -v zenity >/dev/null 2>&1; then
+		zenity --question --title="Google Workspace" --text="Upload $name to Google Drive?" >/dev/null 2>&1
+		return $?
+	fi
+
+	if command -v kdialog >/dev/null 2>&1; then
+		kdialog --title "Google Workspace" --yesno "Upload $name to Google Drive?" >/dev/null 2>&1
+		return $?
+	fi
+
+	if [ -t 0 ]; then
+		printf 'Upload %s to Google Drive? [y/N] ' "$name" >&2
+		read answer
+		case "$answer" in
+			y | Y | yes | YES)
+				return 0
+				;;
+		esac
+	fi
+
+	notify "Google Workspace" "Could not confirm upload. Add --assume-yes or install zenity/kdialog."
+	return 1
 }
 
 extension() {
@@ -74,11 +126,58 @@ extension() {
 }
 
 workspace_url() {
-	/usr/bin/plutil -extract url raw -o - "$1" 2>/dev/null
+	if command -v python3 >/dev/null 2>&1; then
+		python3 - "$1" <<'PY'
+import json
+import plistlib
+import sys
+
+with open(sys.argv[1], "rb") as f:
+    data = f.read()
+
+for loader in (plistlib.loads, json.loads):
+    try:
+        value = loader(data)
+    except Exception:
+        continue
+
+    url = value.get("url") if isinstance(value, dict) else None
+    if url:
+        print(url)
+        raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+		return $?
+	fi
+
+	if command -v plutil >/dev/null 2>&1; then
+		plutil -extract url raw -o - "$1" 2>/dev/null
+	fi
 }
 
 open_url() {
-	open "$1"
+	url=$1
+
+	case "$(uname -s 2>/dev/null)" in
+		Darwin)
+			open "$url"
+			return $?
+			;;
+	esac
+
+	if command -v xdg-open >/dev/null 2>&1; then
+		xdg-open "$url"
+		return $?
+	fi
+
+	if command -v gio >/dev/null 2>&1; then
+		gio open "$url"
+		return $?
+	fi
+
+	printf '%s\n' "No URL opener found. Install xdg-open or gio." >&2
+	return 1
 }
 
 target_mime() {
@@ -106,6 +205,23 @@ target_mime() {
 			else
 				return 1
 			fi
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+target_kind() {
+	case "$1" in
+		application/vnd.google-apps.document)
+			printf '%s\n' "doc"
+			;;
+		application/vnd.google-apps.presentation)
+			printf '%s\n' "slides"
+			;;
+		application/vnd.google-apps.spreadsheet)
+			printf '%s\n' "sheet"
 			;;
 		*)
 			return 1
@@ -152,29 +268,78 @@ upload_content_type() {
 			printf '%s\n' "text/csv"
 			;;
 		*)
+			generic_content_type "$2"
+			;;
+	esac
+}
+
+generic_content_type() {
+	path=$1
+
+	if command -v python3 >/dev/null 2>&1; then
+		content_type=$(python3 - "$path" <<'PY'
+import mimetypes
+import sys
+
+content_type, _ = mimetypes.guess_type(sys.argv[1])
+if content_type:
+    print(content_type)
+PY
+)
+		if [ -n "$content_type" ]; then
+			printf '%s\n' "$content_type"
+			return 0
+		fi
+	fi
+
+	printf '%s\n' "application/octet-stream"
+}
+
+drive_cli() {
+	case "$DRIVE_CLI" in
+		gws)
+			command -v gws >/dev/null 2>&1 && {
+				printf '%s\n' "gws"
+				return 0
+			}
+			notify "Google Workspace" "gws is not installed."
+			return 1
+			;;
+		gog)
+			command -v gog >/dev/null 2>&1 && {
+				printf '%s\n' "gog"
+				return 0
+			}
+			notify "Google Workspace" "gog is not installed."
+			return 1
+			;;
+		auto)
+			if command -v gws >/dev/null 2>&1; then
+				printf '%s\n' "gws"
+				return 0
+			fi
+			if command -v gog >/dev/null 2>&1; then
+				printf '%s\n' "gog"
+				return 0
+			fi
+			notify "Google Workspace" "Install googleworkspace-cli or gogcli and complete Drive auth first."
+			return 1
+			;;
+		*)
+			notify "Google Workspace" "Unsupported Drive CLI: $DRIVE_CLI"
 			return 1
 			;;
 	esac
 }
 
-upload_and_open() {
+upload_with_gws() {
 	path=$1
 	ext=$2
 	name=${path##*/}
 	stem=${name%.*}
 	dir=${path%/*}
 	target=$(target_mime "$ext") || target=
-	content_type=$(upload_content_type "$ext") || return 1
-
-	if ! command -v gws >/dev/null 2>&1; then
-		notify "Google Workspace" "Install googleworkspace-cli and run gws auth login first."
-		return 1
-	fi
-
-	if ! command -v jq >/dev/null 2>&1; then
-		notify "Google Workspace" "jq is required to build and parse the Drive upload request."
-		return 1
-	fi
+	content_type=$(upload_content_type "$ext" "$path")
 
 	if [ -n "$UPLOAD_DIR" ] && [ -n "$target" ]; then
 		metadata=$(jq -cn --arg name "$stem" --arg mimeType "$target" --arg parent "$UPLOAD_DIR" '{name: $name, mimeType: $mimeType, parents: [$parent]}')
@@ -190,12 +355,51 @@ upload_and_open() {
 		dir=.
 	fi
 
-	result=$(cd "$dir" && gws drive files create --params "$params" --json "$metadata" --upload "$name" --upload-content-type "$content_type" 2>&1)
+	cd "$dir" && gws drive files create --params "$params" --json "$metadata" --upload "$name" --upload-content-type "$content_type"
+}
+
+upload_with_gog() {
+	path=$1
+	ext=$2
+	name=${path##*/}
+	stem=${name%.*}
+	target=$(target_mime "$ext") || target=
+	content_type=$(upload_content_type "$ext" "$path")
+
+	set -- drive upload "$path" --json --results-only --no-input --mime-type "$content_type"
+	if [ -n "$UPLOAD_DIR" ]; then
+		set -- "$@" --parent "$UPLOAD_DIR"
+	fi
+	if [ -n "$target" ] && kind=$(target_kind "$target"); then
+		set -- "$@" --convert-to "$kind" --name "$stem"
+	elif [ "$name" != "$stem" ]; then
+		set -- "$@" --name "$name"
+	fi
+
+	gog "$@"
+}
+
+json_field() {
+	jq -r "$1 // .result$1 // .data$1 // empty"
+}
+
+upload_and_open() {
+	path=$1
+	ext=$2
+	target=$(target_mime "$ext") || target=
+	cli=$(drive_cli) || return 1
+
+	if ! command -v jq >/dev/null 2>&1; then
+		notify "Google Workspace" "jq is required to build and parse Drive JSON responses."
+		return 1
+	fi
+
+	result=$(upload_with_"$cli" "$path" "$ext" 2>&1)
 	code=$?
 
 	if [ "$code" -ne 0 ]; then
 		printf '%s\n' "$result" >&2
-		notify "Google Workspace" "Upload failed. Check gws authentication and Drive permissions."
+		notify "Google Workspace" "Upload failed. Check $cli authentication and Drive permissions."
 		return 1
 	fi
 
@@ -206,8 +410,8 @@ upload_and_open() {
 		return 1
 	fi
 
-	url=$(printf '%s\n' "$json" | jq -r '.webViewLink // empty')
-	id=$(printf '%s\n' "$json" | jq -r '.id // empty')
+	url=$(printf '%s\n' "$json" | json_field ".webViewLink")
+	id=$(printf '%s\n' "$json" | json_field ".id")
 
 	if [ -z "$url" ] && [ -n "$id" ] && [ -n "$target" ]; then
 		case "$target" in
@@ -262,8 +466,16 @@ for path do
 			fi
 			;;
 		*)
-			notify "Google Workspace" "Unsupported file type: $(basename "$path")"
-			status=1
+			if [ -f "$path" ]; then
+				if confirm_upload "$path"; then
+					upload_and_open "$path" "$ext" || status=1
+				else
+					status=1
+				fi
+			else
+				notify "Google Workspace" "Unsupported path: $(basename "$path")"
+				status=1
+			fi
 			;;
 	esac
 done
