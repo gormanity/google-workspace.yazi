@@ -10,6 +10,7 @@ A Yazi plugin and opener for Google Workspace and Google Drive workflows.
 - Optionally convert Office and OpenDocument files to native Google Workspace
   formats while uploading
 - Jump from Yazi to the default Drive upload folder
+- Bind an upload command without using file opener rules
 
 ## Requirements
 
@@ -145,6 +146,16 @@ run  = "plugin google-workspace cd-upload-dir"
 desc = "Go to Google Drive upload directory"
 ```
 
+To upload the selected files, or the hovered file when nothing is selected,
+without using opener rules:
+
+```toml
+[[mgr.prepend_keymap]]
+on   = [ "u", "g" ]
+run  = "plugin google-workspace upload"
+desc = "Upload to Google Drive"
+```
+
 ## Usage
 
 ### Open Google Workspace Shortcuts
@@ -170,6 +181,10 @@ open the resulting Drive URL in the browser.
 
 The opener asks for confirmation before uploading unless `assume_yes = true` is
 set in `init.lua`.
+
+You can also run `plugin google-workspace upload` from a keymap to upload the
+selected files, or the hovered file when nothing is selected. This uses the same
+configuration from `init.lua` and does not require `[open]` rules.
 
 ### Convert Files
 
@@ -210,9 +225,11 @@ one can be found or configured.
    shortcut URLs directly.
 4. For regular local files, `open` uploads the file with `gws` or `gog`, then
    opens the returned Drive URL.
-5. `plugin google-workspace` without arguments delegates to Yazi's built-in
+5. `plugin google-workspace upload` calls the packaged `open` helper for the
+   selected files, or the hovered file when nothing is selected.
+6. `plugin google-workspace` without arguments delegates to Yazi's built-in
    `open`, so it uses the same `[open]` and `[opener]` rules.
-6. `plugin google-workspace cd-upload-dir` runs `resolve-upload-dir` and emits a
+7. `plugin google-workspace cd-upload-dir` runs `resolve-upload-dir` and emits a
    Yazi `cd` command for the resolved local Drive path.
 
 ## Development

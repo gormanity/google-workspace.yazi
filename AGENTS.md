@@ -66,6 +66,8 @@ The plugin should:
   `gws` and falls back to `gog`.
 - `plugin google-workspace` without arguments should delegate to Yazi's built-in
   `open`, so it also uses `[open]`/`[opener]` from `yazi.toml`.
+- `plugin google-workspace upload` should upload the selected files, or the
+  hovered file when nothing is selected, without requiring `[open]` rules.
 - `plugin google-workspace cd-upload-dir` should navigate to the configured
   upload folder, or My Drive root if no upload folder is configured.
 
