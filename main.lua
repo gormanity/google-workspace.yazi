@@ -105,6 +105,43 @@ local function upload()
 	end
 end
 
+local function config_value(name)
+	local file = io.open(CONFIG_PATH, "r")
+	if not file then
+		return nil
+	end
+
+	for line in file:lines() do
+		local value = line:match("^" .. name .. "='(.*)'$")
+		if value then
+			file:close()
+			return (value:gsub([['"'"']], "'"))
+		end
+	end
+
+	file:close()
+	return nil
+end
+
+local function open_upload_dir()
+	local folder_id = config_value("GOOGLE_WORKSPACE_UPLOAD_DIR")
+	local url = "https://drive.google.com/drive/my-drive"
+	if folder_id and folder_id ~= "" then
+		url = "https://drive.google.com/drive/folders/" .. folder_id
+	end
+
+	local output, err = Command(OPEN):arg("--url"):arg(url):output()
+	if not output then
+		notify("error", tostring(err))
+		return
+	end
+
+	if not output.status.success then
+		local stderr = output.stderr and tostring(output.stderr) or "Could not open Google Drive upload directory."
+		notify("error", stderr:gsub("%s+$", ""))
+	end
+end
+
 return {
 	setup = function(self, opts)
 		if opts == nil and type(self) == "table" and not self.entry then
@@ -122,6 +159,10 @@ return {
 		end
 		if args[1] == "upload" then
 			upload()
+			return
+		end
+		if args[1] == "open-upload-dir" then
+			open_upload_dir()
 			return
 		end
 

@@ -13,6 +13,7 @@ CONVERT=${GOOGLE_WORKSPACE_CONVERT:-}
 DRIVE_ROOT=${GOOGLE_WORKSPACE_DRIVE_ROOT:-}
 DRIVE_CLI=${GOOGLE_WORKSPACE_DRIVE_CLI:-auto}
 URL_OPENER=${GOOGLE_WORKSPACE_URL_OPENER:-}
+OPEN_URL=
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -54,6 +55,14 @@ while [ "$#" -gt 0 ]; do
 				exit 1
 			fi
 			URL_OPENER=$2
+			shift 2
+			;;
+		--url)
+			if [ "$#" -lt 2 ]; then
+				printf '%s\n' "--url requires a value" >&2
+				exit 1
+			fi
+			OPEN_URL=$2
 			shift 2
 			;;
 		--)
@@ -461,6 +470,11 @@ upload_and_open() {
 }
 
 if [ "$#" -eq 0 ]; then
+	if [ -n "$OPEN_URL" ]; then
+		open_url "$OPEN_URL"
+		exit $?
+	fi
+
 	notify "Google Workspace" "No file was provided."
 	exit 1
 fi
