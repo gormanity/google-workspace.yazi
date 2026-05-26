@@ -99,6 +99,17 @@ prepend_rules = [
 
 If `--upload-dir-id` is omitted, uploads go to Drive root.
 
+Supported opener flags:
+
+| Flag                   | Description                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| `--upload-dir-id <ID>` | Drive folder ID to upload files into                                             |
+| `--drive-root <PATH>`  | Local My Drive root for `cd-upload-dir` on non-macOS or custom sync/mount setups |
+| `--drive-cli <CLI>`    | Drive CLI backend: `auto`, `gws`, or `gog`                                       |
+| `--url-opener <CMD>`   | Command to open Drive URLs; receives the URL as its first argument               |
+| `--convert`            | Convert supported Office and OpenDocument files to native Google Workspace files |
+| `--assume-yes`         | Skip the upload confirmation dialog                                              |
+
 By default, the plugin uses `gws` when it is installed and falls back to `gog`.
 To force one backend, add `--drive-cli gws` or `--drive-cli gog` to the opener
 command.
@@ -206,17 +217,6 @@ The plugin reads the `--upload-dir-id` and `--drive-root` values from the
 
 If no upload folder is configured, it navigates to the local My Drive root when
 one can be found or configured.
-
-## Opener Options
-
-| Option                 | Description                                                                      |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| `--upload-dir-id <ID>` | Drive folder ID to upload files into                                             |
-| `--drive-root <PATH>`  | Local My Drive root for `cd-upload-dir` on non-macOS or custom sync/mount setups |
-| `--drive-cli <CLI>`    | Drive CLI backend: `auto`, `gws`, or `gog`                                       |
-| `--url-opener <CMD>`   | Command to open Drive URLs; receives the URL as its first argument               |
-| `--convert`            | Convert supported Office and OpenDocument files to native Google Workspace files |
-| `--assume-yes`         | Skip the upload confirmation dialog                                              |
 
 ## How It Works
 
