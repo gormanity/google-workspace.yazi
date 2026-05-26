@@ -73,7 +73,11 @@ Recommended `yazi.toml` shape:
 ```toml
 [opener]
 google_workspace = [
-  { run = '~/.config/yazi/plugins/google-workspace.yazi/open --upload-dir-id "<Drive folder ID>" "$@"', desc = "Google Workspace", orphan = true },
+  {
+    run = '~/.config/yazi/plugins/google-workspace.yazi/open --upload-dir-id "<Drive folder ID>" "$@"',
+    desc = "Google Workspace",
+    orphan = true,
+  },
 ]
 ```
 
