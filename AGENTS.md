@@ -52,19 +52,53 @@ The plugin should:
   static shell commands.
 - Do not put user config inside the plugin directory. Yazi package-managed
   plugins can detect source divergence as an error.
-- The upload directory must be configured in only one place: the
-  `google_workspace` opener command in `yazi.toml`.
-- `resolve-upload-dir` reads `--upload-dir-id` from that opener command in
-  `~/.config/yazi/yazi.toml`; if absent, it defaults to local My Drive root.
-- `resolve-upload-dir` also reads `--drive-root` from the opener command for
-  non-macOS, WSL, or custom local Drive sync/mount locations.
+- User-managed plugin config belongs in `~/.config/yazi/init.lua` via
+  `require("google-workspace"):setup({ ... })`.
+- The upload directory must be configured in only one place: `upload_dir_id` in
+  plugin setup.
+- `main.lua` writes setup values to
+  `${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/google-workspace.yazi.env`; `open`
+  and `resolve-upload-dir` load that generated file.
+- `resolve-upload-dir` reads `upload_dir_id` and `drive_root` from plugin setup;
+  if absent, it defaults to local My Drive root.
 - `open` and `resolve-upload-dir` support either `gws` from
-  `googleworkspace-cli` or `gog` from `gogcli`; `--drive-cli auto` prefers `gws`
-  and falls back to `gog`.
+  `googleworkspace-cli` or `gog` from `gogcli`; `drive_cli = "auto"` prefers
+  `gws` and falls back to `gog`.
 - `plugin google-workspace` without arguments should delegate to Yazi's built-in
   `open`, so it also uses `[open]`/`[opener]` from `yazi.toml`.
 - `plugin google-workspace cd-upload-dir` should navigate to the configured
   upload folder, or My Drive root if no upload folder is configured.
+
+## Configuration Contract
+
+Recommended `init.lua` shape:
+
+```lua
+require("google-workspace"):setup({
+  upload_dir_id = "<Drive folder ID>",
+  drive_root = "$HOME/Drive/My Drive",
+  drive_cli = "auto",
+  url_opener = "wslview",
+  convert = false,
+  assume_yes = false,
+})
+```
+
+All setup options are optional.
+
+Supported setup options:
+
+- `upload_dir_id`: Google Drive folder ID for uploads.
+- `drive_root`: local My Drive root for `cd-upload-dir` on non-macOS, WSL, or
+  custom Drive sync/mount setups.
+- `drive_cli`: Drive CLI backend: `auto`, `gws`, or `gog`. Defaults to `auto`.
+- `url_opener`: command used to open Drive URLs. It receives the URL as its
+  first argument.
+- `convert`: opt into converting supported Office files to native Google
+  Workspace files.
+- `assume_yes`: skip the upload confirmation dialog.
+
+If `upload_dir_id` is omitted, uploads go to Drive root.
 
 ## Opener Contract
 
@@ -76,7 +110,6 @@ google_workspace = [
   {
     run = """
       ${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open \
-        --upload-dir-id "<Drive folder ID>" \
         "$@"
     """,
     desc = "Google Workspace",
@@ -84,20 +117,6 @@ google_workspace = [
   },
 ]
 ```
-
-Supported opener flags:
-
-- `--upload-dir-id <ID>`: Google Drive folder ID for uploads.
-- `--drive-root <PATH>`: local My Drive root for `cd-upload-dir` on non-macOS,
-  WSL, or custom Drive sync/mount setups.
-- `--drive-cli <auto|gws|gog>`: Drive CLI backend. Defaults to `auto`.
-- `--url-opener <CMD>`: command used to open Drive URLs. It receives the URL as
-  its first argument.
-- `--convert`: opt into converting supported Office files to native Google
-  Workspace files.
-- `--assume-yes`: skip the upload confirmation dialog.
-
-If `--upload-dir-id` is omitted, uploads go to Drive root.
 
 ## Conversion Policy
 
