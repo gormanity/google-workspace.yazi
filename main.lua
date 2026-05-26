@@ -1,5 +1,6 @@
 local CONFIG_HOME = os.getenv("YAZI_CONFIG_HOME") or (os.getenv("HOME") .. "/.config/yazi")
 local CONFIG_PATH = CONFIG_HOME .. "/google-workspace.yazi.env"
+local OPEN = CONFIG_HOME .. "/plugins/google-workspace.yazi/open"
 local RESOLVE_UPLOAD_DIR = CONFIG_HOME .. "/plugins/google-workspace.yazi/resolve-upload-dir"
 local notify
 
@@ -63,6 +64,47 @@ local function cd_upload_dir()
 	ya.mgr_emit("cd", { path })
 end
 
+local selected_or_hovered = ya.sync(function()
+	local urls = {}
+
+	for _, url in pairs(cx.active.selected) do
+		urls[#urls + 1] = tostring(url)
+	end
+
+	if #urls == 0 then
+		local hovered = cx.active.current.hovered
+		if hovered then
+			urls[#urls + 1] = tostring(hovered.url)
+		end
+	end
+
+	return urls
+end)
+
+local function upload()
+	local urls = selected_or_hovered()
+	if #urls == 0 then
+		notify("error", "No file is selected or hovered.")
+		return
+	end
+
+	local command = Command(OPEN)
+	for _, url in ipairs(urls) do
+		command:arg(url)
+	end
+
+	local output, err = command:output()
+	if not output then
+		notify("error", tostring(err))
+		return
+	end
+
+	if not output.status.success then
+		local stderr = output.stderr and tostring(output.stderr) or "Upload failed."
+		notify("error", stderr:gsub("%s+$", ""))
+	end
+end
+
 return {
 	setup = function(self, opts)
 		if opts == nil and type(self) == "table" and not self.entry then
@@ -76,6 +118,10 @@ return {
 		local args = job.args or {}
 		if args[1] == "cd-upload-dir" then
 			cd_upload_dir()
+			return
+		end
+		if args[1] == "upload" then
+			upload()
 			return
 		end
 
