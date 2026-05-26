@@ -68,7 +68,11 @@ Add a `google_workspace` opener to `~/.config/yazi/yazi.toml`:
 [opener]
 google_workspace = [
   {
-    run = '~/.config/yazi/plugins/google-workspace.yazi/open --upload-dir-id "<Drive folder ID>" "$@"',
+    run = """
+      ~/.config/yazi/plugins/google-workspace.yazi/open \
+        --upload-dir-id "<Drive folder ID>" \
+        "$@"
+    """,
     desc = "Google Workspace",
     orphan = true,
   },
@@ -106,7 +110,12 @@ Drive's My Drive root, whether it comes from Google Drive for Desktop,
 [opener]
 google_workspace = [
   {
-    run = '~/.config/yazi/plugins/google-workspace.yazi/open --drive-root "$HOME/Drive/My Drive" --upload-dir-id "<Drive folder ID>" "$@"',
+    run = """
+      ~/.config/yazi/plugins/google-workspace.yazi/open \
+        --drive-root "$HOME/Drive/My Drive" \
+        --upload-dir-id "<Drive folder ID>" \
+        "$@"
+    """,
     desc = "Google Workspace",
     orphan = true,
   },
@@ -166,7 +175,12 @@ same is true for other local files, such as PDFs and images.
 [opener]
 google_workspace = [
   {
-    run = '~/.config/yazi/plugins/google-workspace.yazi/open --convert --upload-dir-id "<Drive folder ID>" "$@"',
+    run = """
+      ~/.config/yazi/plugins/google-workspace.yazi/open \
+        --convert \
+        --upload-dir-id "<Drive folder ID>" \
+        "$@"
+    """,
     desc = "Google Workspace",
     orphan = true,
   },
