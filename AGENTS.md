@@ -8,6 +8,18 @@ This repository is the standalone source for the Yazi plugin
 The repository is initialized as a colocated Jujutsu/Git repo. Use `jj` by
 default for repo operations.
 
+## Change Hygiene
+
+- Keep jj changes atomic. One logical behavior/docs/workflow update per change.
+- Before starting a new logical task or follow-up request, run `jj status` and
+  `jj log -r '::@'` to confirm the active change boundary.
+- If the current change already contains a different logical task, run `jj new`
+  before editing.
+- If a change grows to include more than one logical task, run `jj split`
+  immediately before continuing.
+- Name each non-empty change with `jj describe` as soon as its purpose is clear.
+- Do not leave broad mixed changes for later cleanup.
+
 ## Goal
 
 Provide a Yazi opener/plugin for Google Workspace and Google Drive workflows.
