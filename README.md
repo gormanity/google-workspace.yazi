@@ -32,6 +32,9 @@ Platform notes:
 - On Linux, install `xdg-open` or `gio` for opening URLs. For notifications and
   upload confirmation dialogs, install `notify-send`, `zenity`, or `kdialog`, or
   use `--assume-yes`.
+- Use `--url-opener` when you want a specific command to open returned Drive
+  URLs, such as `wslview` in WSL. The command receives the URL as its first
+  argument.
 - On Linux, WSL, or any setup using a custom Drive sync folder or mount,
   configure `--drive-root` if you want `cd-upload-dir` to map Drive folder IDs
   back to local paths.
@@ -211,6 +214,7 @@ one can be found or configured.
 | `--upload-dir-id <ID>` | Drive folder ID to upload files into                                             |
 | `--drive-root <PATH>`  | Local My Drive root for `cd-upload-dir` on non-macOS or custom sync/mount setups |
 | `--drive-cli <CLI>`    | Drive CLI backend: `auto`, `gws`, or `gog`                                       |
+| `--url-opener <CMD>`   | Command to open Drive URLs; receives the URL as its first argument               |
 | `--convert`            | Convert supported Office and OpenDocument files to native Google Workspace files |
 | `--assume-yes`         | Skip the upload confirmation dialog                                              |
 

@@ -91,6 +91,8 @@ Supported opener flags:
 - `--drive-root <PATH>`: local My Drive root for `cd-upload-dir` on non-macOS,
   WSL, or custom Drive sync/mount setups.
 - `--drive-cli <auto|gws|gog>`: Drive CLI backend. Defaults to `auto`.
+- `--url-opener <CMD>`: command used to open Drive URLs. It receives the URL as
+  its first argument.
 - `--convert`: opt into converting supported Office files to native Google
   Workspace files.
 - `--assume-yes`: skip the upload confirmation dialog.
