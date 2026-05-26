@@ -51,14 +51,14 @@ ya pkg add gormanity/google-workspace
 
 ```sh
 git clone https://github.com/gormanity/google-workspace.yazi.git \
-  ~/.config/yazi/plugins/google-workspace.yazi
+  "${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi"
 ```
 
 Make sure the packaged helper scripts are executable:
 
 ```sh
-chmod +x ~/.config/yazi/plugins/google-workspace.yazi/open
-chmod +x ~/.config/yazi/plugins/google-workspace.yazi/resolve-upload-dir
+chmod +x "${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open"
+chmod +x "${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/resolve-upload-dir"
 ```
 
 ## Configuration
@@ -72,7 +72,7 @@ Add a `google_workspace` opener to `~/.config/yazi/yazi.toml`:
 google_workspace = [
   {
     run = """
-      ~/.config/yazi/plugins/google-workspace.yazi/open \
+      ${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open \
         --upload-dir-id "<Drive folder ID>" \
         "$@"
     """,
@@ -125,7 +125,7 @@ Drive's My Drive root, whether it comes from Google Drive for Desktop,
 google_workspace = [
   {
     run = """
-      ~/.config/yazi/plugins/google-workspace.yazi/open \
+      ${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open \
         --drive-root "$HOME/Drive/My Drive" \
         --upload-dir-id "<Drive folder ID>" \
         "$@"
@@ -190,7 +190,7 @@ same is true for other local files, such as PDFs and images.
 google_workspace = [
   {
     run = """
-      ~/.config/yazi/plugins/google-workspace.yazi/open \
+      ${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open \
         --convert \
         --upload-dir-id "<Drive folder ID>" \
         "$@"
