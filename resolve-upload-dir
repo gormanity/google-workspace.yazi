@@ -1,8 +1,15 @@
 #!/bin/sh
 
-folder_id=
-drive_root=
-drive_cli=auto
+config_home=${YAZI_CONFIG_HOME:-"$HOME/.config/yazi"}
+config_path=$config_home/google-workspace.yazi.env
+
+if [ -f "$config_path" ]; then
+	. "$config_path"
+fi
+
+folder_id=${GOOGLE_WORKSPACE_UPLOAD_DIR:-}
+drive_root=${GOOGLE_WORKSPACE_DRIVE_ROOT:-}
+drive_cli=${GOOGLE_WORKSPACE_DRIVE_CLI:-auto}
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
