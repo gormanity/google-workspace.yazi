@@ -77,6 +77,12 @@ local_drive_root() {
 		return 1
 	fi
 
+	root=$HOME/Google\ Drive
+	if [ -d "$root" ]; then
+		printf '%s\n' "$root"
+		return 0
+	fi
+
 	case "$(uname -s 2>/dev/null)" in
 		Darwin)
 			for root in "$HOME"/Library/CloudStorage/GoogleDrive-*/My\ Drive; do
@@ -86,10 +92,10 @@ local_drive_root() {
 				fi
 			done
 
-			printf '%s\n' "Could not find local Google Drive root. Confirm Google Drive for Desktop is running." >&2
+			printf '%s\n' "Could not find local Google Drive root. Configure drive_root in init.lua." >&2
 			;;
 		*)
-			printf '%s\n' "Could not find local Google Drive root. Configure --drive-root in the google_workspace opener." >&2
+			printf '%s\n' "Could not find local Google Drive root. Configure drive_root in init.lua." >&2
 			;;
 	esac
 
