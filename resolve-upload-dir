@@ -102,56 +102,6 @@ local_drive_root() {
 	return 1
 }
 
-configured_opener_value() {
-	flag=$1
-	config_home=${YAZI_CONFIG_HOME:-"$HOME/.config/yazi"}
-	config=$config_home/yazi.toml
-
-	if [ ! -f "$config" ] || ! command -v python3 >/dev/null 2>&1; then
-		return 1
-	fi
-
-	python3 - "$config" "$flag" <<'PY'
-import shlex
-import sys
-import tomllib
-
-config = sys.argv[1]
-flag = sys.argv[2]
-with open(config, "rb") as f:
-    data = tomllib.load(f)
-
-for opener in data.get("opener", {}).get("google_workspace", []):
-    run = opener.get("run", "")
-    try:
-        parts = shlex.split(run)
-    except ValueError:
-        continue
-
-    for i, part in enumerate(parts):
-        if part == flag and i + 1 < len(parts):
-            print(parts[i + 1])
-            raise SystemExit(0)
-        if part.startswith(flag + "="):
-            print(part.split("=", 1)[1])
-            raise SystemExit(0)
-
-raise SystemExit(1)
-PY
-}
-
-if [ -z "$folder_id" ]; then
-	folder_id=$(configured_opener_value --upload-dir-id) || folder_id=
-fi
-
-if [ -z "$drive_root" ]; then
-	drive_root=$(configured_opener_value --drive-root) || drive_root=
-fi
-
-if [ "$drive_cli" = "auto" ]; then
-	drive_cli=$(configured_opener_value --drive-cli) || drive_cli=auto
-fi
-
 if [ -z "$folder_id" ]; then
 	local_drive_root
 	exit $?

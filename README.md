@@ -38,7 +38,7 @@ Platform notes:
   URLs, such as `wslview` in WSL. The command receives the URL as its first
   argument.
 - On Linux, WSL, or any setup using a custom Drive sync folder or mount,
-  configure `--drive-root` if you want `cd-upload-dir` to map Drive folder IDs
+  configure `drive_root` if you want `cd-upload-dir` to map Drive folder IDs
   back to local paths.
 
 ## Installation

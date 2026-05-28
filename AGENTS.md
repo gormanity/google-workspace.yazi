@@ -133,8 +133,7 @@ Runtime dependencies:
 - One Drive CLI: `googleworkspace-cli`, providing `gws`, or `gogcli`, providing
   `gog`.
 - `jq`.
-- `python3`, used to parse Google shortcut files, infer MIME types, and parse
-  `yazi.toml`.
+- `python3`, used to parse Google shortcut files and infer MIME types.
 - A local Drive sync folder or mount for `cd-upload-dir`.
 
 Platform-specific runtime behavior:
@@ -144,7 +143,7 @@ Platform-specific runtime behavior:
   `~/Library/CloudStorage`.
 - Linux uses `xdg-open` or `gio` for URLs. `notify-send`, `zenity`, and
   `kdialog` are optional notification/confirmation helpers. Configure
-  `--drive-root` for local Drive folder or mount navigation.
+  `drive_root` for local Drive folder or mount navigation.
 
 Drive authentication must be completed in the chosen CLI before
 upload/conversion workflows.

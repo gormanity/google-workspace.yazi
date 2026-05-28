@@ -10,7 +10,6 @@ fi
 ASSUME_YES=${GOOGLE_WORKSPACE_ASSUME_YES:-}
 UPLOAD_DIR=${GOOGLE_WORKSPACE_UPLOAD_DIR:-}
 CONVERT=${GOOGLE_WORKSPACE_CONVERT:-}
-DRIVE_ROOT=${GOOGLE_WORKSPACE_DRIVE_ROOT:-}
 DRIVE_CLI=${GOOGLE_WORKSPACE_DRIVE_CLI:-auto}
 URL_OPENER=${GOOGLE_WORKSPACE_URL_OPENER:-}
 OPEN_URL=
@@ -31,14 +30,6 @@ while [ "$#" -gt 0 ]; do
 				exit 1
 			fi
 			UPLOAD_DIR=$2
-			shift 2
-			;;
-		--drive-root)
-			if [ "$#" -lt 2 ]; then
-				printf '%s\n' "--drive-root requires a value" >&2
-				exit 1
-			fi
-			DRIVE_ROOT=$2
 			shift 2
 			;;
 		--drive-cli)
@@ -433,7 +424,7 @@ upload_and_open() {
 	json=$(printf '%s\n' "$result" | sed -n '/^{/,$p')
 	if ! printf '%s\n' "$json" | jq -e . >/dev/null 2>&1; then
 		printf '%s\n' "$result" >&2
-		notify "Google Workspace" "Upload succeeded, but gws returned an unreadable response."
+		notify "Google Workspace" "Upload succeeded, but the Drive CLI returned an unreadable response."
 		return 1
 	fi
 
