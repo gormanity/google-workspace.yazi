@@ -233,7 +233,8 @@ files to native Google Workspace files:
 By default, Office and OpenDocument files upload as original Drive files. The
 same is true for other local files, such as PDFs and images.
 
-`.xsv` files always upload as native Google Sheets.
+`.xsv` files upload as regular files by default and convert to native Google
+Sheets only when `convert = true` is set.
 
 ### Navigate to the Upload Folder
 
