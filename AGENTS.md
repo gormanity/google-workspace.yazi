@@ -117,11 +117,10 @@ google_workspace = [
 
 ## Conversion Policy
 
-- `.xsv` uploads as a regular file by default.
 - Office files (`.xls`, `.xlsx`, `.docx`, `.pptx`, etc.) upload as original
   Drive files by default.
-- Office, OpenDocument, and `.xsv` conversion only happens when `convert = true`
-  or `--convert` is set.
+- Office and OpenDocument conversion only happens when `convert = true` or
+  `--convert` is set.
 
 Rationale: automatic conversion of Office files is surprising. The user
 specifically decided conversion must be opt-in.
