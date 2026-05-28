@@ -21,7 +21,7 @@ A Yazi plugin and opener for Google Workspace and Google Drive workflows.
     `gws`
   - [`gogcli`](https://github.com/openclaw/gogcli), providing `gog`
 - `jq`
-- `python3`
+- `python3`, for expanding `~` and environment variables in `drive_root`
 
 Complete Drive authentication in your chosen CLI before using upload or
 folder-resolution workflows.

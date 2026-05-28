@@ -142,29 +142,12 @@ extension() {
 }
 
 workspace_url() {
-	if command -v python3 >/dev/null 2>&1; then
-		python3 - "$1" <<'PY'
-import json
-import plistlib
-import sys
-
-with open(sys.argv[1], "rb") as f:
-    data = f.read()
-
-for loader in (plistlib.loads, json.loads):
-    try:
-        value = loader(data)
-    except Exception:
-        continue
-
-    url = value.get("url") if isinstance(value, dict) else None
-    if url:
-        print(url)
-        raise SystemExit(0)
-
-raise SystemExit(1)
-PY
-		return $?
+	if command -v jq >/dev/null 2>&1; then
+		url=$(jq -r '.url // empty' "$1" 2>/dev/null)
+		if [ -n "$url" ]; then
+			printf '%s\n' "$url"
+			return 0
+		fi
 	fi
 
 	if command -v plutil >/dev/null 2>&1; then

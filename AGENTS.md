@@ -133,8 +133,7 @@ Runtime dependencies:
 - One Drive CLI: `googleworkspace-cli`, providing `gws`, or `gogcli`, providing
   `gog`.
 - `jq`.
-- `python3`, used to parse Google shortcut files and expand configured
-  `drive_root` paths.
+- `python3`, used to expand configured `drive_root` paths.
 - A local Drive sync folder or mount for `cd-upload-dir`.
 
 Platform-specific runtime behavior:
