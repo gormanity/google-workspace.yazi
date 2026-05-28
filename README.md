@@ -109,14 +109,7 @@ Add a `google_workspace` opener to `~/.config/yazi/yazi.toml`:
 ```toml
 [opener]
 google_workspace = [
-  {
-    run = """
-      ${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open \
-        "$@"
-    """,
-    desc = "Google Workspace",
-    orphan = true,
-  },
+  { run = '${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open "$@"', desc = "Google Workspace", orphan = true },
 ]
 ```
 

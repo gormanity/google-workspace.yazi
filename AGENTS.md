@@ -111,14 +111,7 @@ Recommended `yazi.toml` shape:
 ```toml
 [opener]
 google_workspace = [
-  {
-    run = """
-      ${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open \
-        "$@"
-    """,
-    desc = "Google Workspace",
-    orphan = true,
-  },
+  { run = '${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open "$@"', desc = "Google Workspace", orphan = true },
 ]
 ```
 
