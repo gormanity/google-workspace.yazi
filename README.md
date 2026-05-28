@@ -21,7 +21,6 @@ A Yazi plugin and opener for Google Workspace and Google Drive workflows.
     `gws`
   - [`gogcli`](https://github.com/openclaw/gogcli), providing `gog`
 - `jq`
-- `python3`, for expanding `~` and environment variables in `drive_root`
 
 Complete Drive authentication in your chosen CLI before using upload or
 folder-resolution workflows.
@@ -100,7 +99,7 @@ On Linux, WSL, or any setup where the local Drive folder is not in the macOS
 Google Drive for Desktop location, set `drive_root`. The path should point at
 the local directory that corresponds to Drive's My Drive root, whether it comes
 from Google Drive for Desktop, `rclone mount`, a FUSE mount, or another sync
-client.
+client. Absolute paths, `~`, `$HOME`, and `${HOME}` are supported.
 
 ### Opener
 

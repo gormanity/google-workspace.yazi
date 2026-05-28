@@ -52,17 +52,29 @@ while [ "$#" -gt 0 ]; do
 done
 
 expand_path() {
-	if ! command -v python3 >/dev/null 2>&1; then
-		printf '%s\n' "$1"
-		return 0
-	fi
-
-	python3 - "$1" <<'PY'
-import os
-import sys
-
-print(os.path.expanduser(os.path.expandvars(sys.argv[1])))
-PY
+	case "$1" in
+		\~)
+			printf '%s\n' "$HOME"
+			;;
+		\~/*)
+			printf '%s\n' "$HOME/${1#\~/}"
+			;;
+		'$HOME')
+			printf '%s\n' "$HOME"
+			;;
+		'$HOME'/*)
+			printf '%s\n' "$HOME/${1#\$HOME/}"
+			;;
+		'${HOME}')
+			printf '%s\n' "$HOME"
+			;;
+		'${HOME}'/*)
+			printf '%s\n' "$HOME/${1#\$\{HOME\}/}"
+			;;
+		*)
+			printf '%s\n' "$1"
+			;;
+	esac
 }
 
 local_drive_root() {
@@ -75,6 +87,12 @@ local_drive_root() {
 
 		printf '%s\n' "Configured local Drive root does not exist: $root" >&2
 		return 1
+	fi
+
+	root=$HOME/Google\ Drive/My\ Drive
+	if [ -d "$root" ]; then
+		printf '%s\n' "$root"
+		return 0
 	fi
 
 	root=$HOME/Google\ Drive
