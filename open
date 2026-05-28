@@ -212,9 +212,6 @@ open_url() {
 
 target_mime() {
 	case "$1" in
-		xsv)
-			printf '%s\n' "application/vnd.google-apps.spreadsheet"
-			;;
 		doc | docx | odt | rtf)
 			if [ "$CONVERT" = "1" ]; then
 				printf '%s\n' "application/vnd.google-apps.document"
@@ -229,7 +226,7 @@ target_mime() {
 				return 1
 			fi
 			;;
-		ods | xls | xlsm | xlsx)
+		ods | xls | xlsm | xlsx | xsv)
 			if [ "$CONVERT" = "1" ]; then
 				printf '%s\n' "application/vnd.google-apps.spreadsheet"
 			else
