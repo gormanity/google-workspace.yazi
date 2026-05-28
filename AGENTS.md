@@ -130,8 +130,8 @@ specifically decided conversion must be opt-in.
 Runtime dependencies:
 
 - Yazi.
-- One Drive CLI: `googleworkspace-cli`, providing `gws`, or `gogcli`, providing
-  `gog`.
+- One of the following Drive CLIs: `googleworkspace-cli`, providing `gws`, or
+  `gogcli`, providing `gog`.
 - `jq`.
 - A local Drive sync folder or mount for `cd-upload-dir`.
 
