@@ -247,72 +247,6 @@ target_kind() {
 	esac
 }
 
-upload_content_type() {
-	case "$1" in
-		doc)
-			printf '%s\n' "application/msword"
-			;;
-		docx)
-			printf '%s\n' "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-			;;
-		odp)
-			printf '%s\n' "application/vnd.oasis.opendocument.presentation"
-			;;
-		ods)
-			printf '%s\n' "application/vnd.oasis.opendocument.spreadsheet"
-			;;
-		odt)
-			printf '%s\n' "application/vnd.oasis.opendocument.text"
-			;;
-		pot | pps | ppt)
-			printf '%s\n' "application/vnd.ms-powerpoint"
-			;;
-		potx | ppsx | pptx)
-			printf '%s\n' "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-			;;
-		rtf)
-			printf '%s\n' "application/rtf"
-			;;
-		xls)
-			printf '%s\n' "application/vnd.ms-excel"
-			;;
-		xlsm)
-			printf '%s\n' "application/vnd.ms-excel.sheet.macroEnabled.12"
-			;;
-		xlsx)
-			printf '%s\n' "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-			;;
-		xsv)
-			printf '%s\n' "text/csv"
-			;;
-		*)
-			generic_content_type "$2"
-			;;
-	esac
-}
-
-generic_content_type() {
-	path=$1
-
-	if command -v python3 >/dev/null 2>&1; then
-		content_type=$(python3 - "$path" <<'PY'
-import mimetypes
-import sys
-
-content_type, _ = mimetypes.guess_type(sys.argv[1])
-if content_type:
-    print(content_type)
-PY
-)
-		if [ -n "$content_type" ]; then
-			printf '%s\n' "$content_type"
-			return 0
-		fi
-	fi
-
-	printf '%s\n' "application/octet-stream"
-}
-
 drive_cli() {
 	case "$DRIVE_CLI" in
 		gws)
@@ -357,7 +291,6 @@ upload_with_gws() {
 	stem=${name%.*}
 	dir=${path%/*}
 	target=$(target_mime "$ext") || target=
-	content_type=$(upload_content_type "$ext" "$path")
 
 	if [ -n "$UPLOAD_DIR" ] && [ -n "$target" ]; then
 		metadata=$(jq -cn --arg name "$stem" --arg mimeType "$target" --arg parent "$UPLOAD_DIR" '{name: $name, mimeType: $mimeType, parents: [$parent]}')
@@ -373,7 +306,7 @@ upload_with_gws() {
 		dir=.
 	fi
 
-	cd "$dir" && gws drive files create --params "$params" --json "$metadata" --upload "$name" --upload-content-type "$content_type"
+	cd "$dir" && gws drive files create --params "$params" --json "$metadata" --upload "$name"
 }
 
 upload_with_gog() {
@@ -382,9 +315,8 @@ upload_with_gog() {
 	name=${path##*/}
 	stem=${name%.*}
 	target=$(target_mime "$ext") || target=
-	content_type=$(upload_content_type "$ext" "$path")
 
-	set -- drive upload "$path" --json --results-only --no-input --mime-type "$content_type"
+	set -- drive upload "$path" --json --results-only --no-input
 	if [ -n "$UPLOAD_DIR" ]; then
 		set -- "$@" --parent "$UPLOAD_DIR"
 	fi
