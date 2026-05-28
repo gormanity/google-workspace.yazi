@@ -15,12 +15,12 @@ A Yazi plugin and opener for Google Workspace and Google Drive workflows.
 
 ## Requirements
 
-- Yazi
+- [`Yazi`](https://github.com/sxyazi/yazi)
 - One Drive CLI:
   - [`googleworkspace-cli`](https://github.com/googleworkspace/cli), providing
     `gws`
   - [`gogcli`](https://github.com/openclaw/gogcli), providing `gog`
-- `jq`
+- [`jq`](https://github.com/jqlang/jq)
 
 Complete Drive authentication in your chosen CLI before using upload or
 folder-resolution workflows.
