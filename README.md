@@ -206,7 +206,8 @@ Use the configured Yazi opener on Google Drive shortcut files:
 - `.glink`
 
 The opener reads the embedded Drive URL from the shortcut and opens it with the
-system URL opener.
+system URL opener. Current Drive for Desktop shortcut files that contain a Drive
+file ID are opened by constructing the matching Google Workspace URL locally.
 
 ### Upload Local Files
 

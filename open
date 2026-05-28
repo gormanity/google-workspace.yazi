@@ -142,17 +142,51 @@ extension() {
 }
 
 workspace_url() {
-	if command -v jq >/dev/null 2>&1; then
-		url=$(jq -r '.url // empty' "$1" 2>/dev/null)
-		if [ -n "$url" ]; then
-			printf '%s\n' "$url"
-			return 0
-		fi
+	ext=$2
+
+	if ! command -v jq >/dev/null 2>&1; then
+		return 1
 	fi
 
-	if command -v plutil >/dev/null 2>&1; then
-		plutil -extract url raw -o - "$1" 2>/dev/null
+	url=$(jq -r '.url // empty' "$1" 2>/dev/null)
+	if [ -n "$url" ]; then
+		printf '%s\n' "$url"
+		return 0
 	fi
+
+	doc_id=$(jq -r '.doc_id // empty' "$1" 2>/dev/null)
+	if [ -z "$doc_id" ]; then
+		return 1
+	fi
+
+	case "$ext" in
+		gdoc)
+			url=https://docs.google.com/document/d/$doc_id/edit
+			;;
+		gsheet)
+			url=https://docs.google.com/spreadsheets/d/$doc_id/edit
+			;;
+		gslides)
+			url=https://docs.google.com/presentation/d/$doc_id/edit
+			;;
+		*)
+			url=https://drive.google.com/open?id=$doc_id
+			;;
+	esac
+
+	resource_key=$(jq -r '.resource_key // empty' "$1" 2>/dev/null)
+	if [ -n "$resource_key" ]; then
+		case "$url" in
+			*\?*)
+				url=$url\&resourcekey=$resource_key
+				;;
+			*)
+				url=$url\?resourcekey=$resource_key
+				;;
+		esac
+	fi
+
+	printf '%s\n' "$url"
 }
 
 open_url() {
@@ -387,9 +421,9 @@ status=0
 for path do
 	ext=$(extension "$path") || ext=
 
-	case "$ext" in
-		gdoc | gdraw | gform | glink | gmap | gsheet | gsite | gslides)
-			url=$(workspace_url "$path")
+		case "$ext" in
+			gdoc | gdraw | gform | glink | gmap | gsheet | gsite | gslides)
+				url=$(workspace_url "$path" "$ext")
 			if [ -n "$url" ]; then
 				open_url "$url" || status=1
 			else
