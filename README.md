@@ -159,6 +159,38 @@ run  = "plugin google-workspace open-upload-dir"
 desc = "Open Google Drive upload directory"
 ```
 
+### Advanced Configuration
+
+The `init.lua` setup is the default configuration for the plugin commands and
+the standard `google_workspace` opener. Individual opener commands can still
+pass flags to override those defaults for a specific file rule.
+
+For example, to convert Word documents but upload Excel files in their original
+format:
+
+```toml
+[opener]
+google_workspace_docs = [
+  { run = '${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open --convert "$@"', desc = "Google Docs", orphan = true },
+]
+
+google_workspace_sheets = [
+  { run = '${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open "$@"', desc = "Google Sheets", orphan = true },
+]
+
+[open]
+prepend_rules = [
+  { name = "*.doc", use = "google_workspace_docs" },
+  { name = "*.docx", use = "google_workspace_docs" },
+  { name = "*.xls", use = "google_workspace_sheets" },
+  { name = "*.xlsx", use = "google_workspace_sheets" },
+]
+```
+
+Direct opener flags only apply when that opener is used. Plugin commands such as
+`plugin google-workspace upload` and `plugin google-workspace cd-upload-dir` use
+the `init.lua` setup.
+
 ## Usage
 
 ### Open Google Workspace Shortcuts
