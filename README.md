@@ -81,19 +81,14 @@ require("google-workspace"):setup({
 
 All options are optional.
 
-| Option          | Description                                                                      |
-| --------------- | -------------------------------------------------------------------------------- |
-| `upload_dir_id` | Drive folder ID to upload files into                                             |
-| `drive_root`    | Local My Drive root for `cd-upload-dir` on non-macOS or custom sync/mount setups |
-| `drive_cli`     | Drive CLI backend: `auto`, `gws`, or `gog`                                       |
-| `url_opener`    | Command to open Drive URLs; receives the URL as its first argument               |
-| `convert`       | Convert supported Office and OpenDocument files to native Google Workspace files |
-| `assume_yes`    | Skip the upload confirmation dialog                                              |
-
-If `upload_dir_id` is omitted, uploads go to Drive root.
-
-By default, the plugin uses `gws` when it is installed and falls back to `gog`.
-Set `drive_cli = "gws"` or `drive_cli = "gog"` to force one backend.
+| Option          | Default                    | Description                                                                      |
+| --------------- | -------------------------- | -------------------------------------------------------------------------------- |
+| `upload_dir_id` | Drive root                 | Drive folder ID to upload files into                                             |
+| `drive_root`    | Auto-detected My Drive     | Local My Drive root for `cd-upload-dir` on non-macOS or custom sync/mount setups |
+| `drive_cli`     | `auto` (`gws`, then `gog`) | Drive CLI backend: `auto`, `gws`, or `gog`                                       |
+| `url_opener`    | System URL opener          | Command to open Drive URLs; receives the URL as its first argument               |
+| `convert`       | `false`                    | Convert supported Office and OpenDocument files to native Google Workspace files |
+| `assume_yes`    | `false`                    | Skip the upload confirmation dialog                                              |
 
 On Linux, WSL, or any setup where the local Drive folder is not in the macOS
 Google Drive for Desktop location, set `drive_root`. The path should point at
