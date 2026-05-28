@@ -264,5 +264,5 @@ if [ -d "$path" ]; then
 	exit 0
 fi
 
-printf '%s\n' "Could not find the Drive folder locally. Confirm Google Drive for Desktop has synced it." >&2
+printf '%s\n' "Could not find the Drive folder locally. Confirm your Drive sync folder or mount is available." >&2
 exit 1
