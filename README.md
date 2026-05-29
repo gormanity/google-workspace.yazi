@@ -11,7 +11,7 @@ A Yazi plugin and opener for Google Workspace and Google Drive workflows.
   formats while uploading
 - Jump from Yazi to the default Drive upload folder
 - Open the configured Drive upload folder in the browser
-- Bind an upload command without using file opener rules
+- Bind an upload-only command without using file opener rules
 
 ## Requirements
 
@@ -132,7 +132,7 @@ desc = "Go to Google Drive upload directory"
 ```
 
 To upload the selected files, or the hovered file when nothing is selected,
-without using opener rules:
+without opening the uploaded Drive file in the browser:
 
 ```toml
 [[mgr.prepend_keymap]]
@@ -210,8 +210,9 @@ The opener asks for confirmation before uploading unless `assume_yes = true` is
 set in `init.lua`.
 
 You can also run `plugin google-workspace upload` from a keymap to upload the
-selected files, or the hovered file when nothing is selected. This uses the same
-configuration from `init.lua` and does not require `[open]` rules.
+selected files, or the hovered file when nothing is selected, without opening
+the uploaded Drive file in the browser. This uses the same configuration from
+`init.lua` and does not require `[open]` rules.
 
 ### Convert Files
 
@@ -255,8 +256,9 @@ root.
    shortcut URLs directly.
 4. For regular local files, `open` uploads the file with `gws` or `gog`, then
    opens the returned Drive URL.
-5. `plugin google-workspace upload` calls the generated `open` helper for the
-   selected files, or the hovered file when nothing is selected.
+5. `plugin google-workspace upload` calls the generated `open` helper with
+   browser opening disabled for the selected files, or the hovered file when
+   nothing is selected.
 6. `plugin google-workspace open-upload-dir` opens the configured upload folder
    URL, or Drive root when no upload folder is configured.
 7. `plugin google-workspace` without arguments delegates to Yazi's built-in

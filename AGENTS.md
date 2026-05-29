@@ -74,7 +74,8 @@ The plugin should:
 - `plugin google-workspace` without arguments should delegate to Yazi's built-in
   `open`, so it also uses `[open]`/`[opener]` from `yazi.toml`.
 - `plugin google-workspace upload` should upload the selected files, or the
-  hovered file when nothing is selected, without requiring `[open]` rules.
+  hovered file when nothing is selected, without opening the uploaded Drive file
+  in the browser and without requiring `[open]` rules.
 - `plugin google-workspace open-upload-dir` should open the configured upload
   folder URL in the browser, or Drive root if no upload folder is configured.
 - `plugin google-workspace cd-upload-dir` should navigate to the configured

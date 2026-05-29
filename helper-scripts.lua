@@ -15,6 +15,7 @@ CONVERT=${GOOGLE_WORKSPACE_CONVERT:-}
 DRIVE_CLI=${GOOGLE_WORKSPACE_DRIVE_CLI:-auto}
 URL_OPENER=${GOOGLE_WORKSPACE_URL_OPENER:-}
 OPEN_URL=
+OPEN_AFTER_UPLOAD=1
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -49,6 +50,10 @@ while [ "$#" -gt 0 ]; do
 			fi
 			URL_OPENER=$2
 			shift 2
+			;;
+		--no-open)
+			OPEN_AFTER_UPLOAD=
+			shift
 			;;
 		--url)
 			if [ "$#" -lt 2 ]; then
@@ -405,7 +410,11 @@ upload_and_open() {
 		return 1
 	fi
 
-	open_url "$url"
+	if [ "$OPEN_AFTER_UPLOAD" = "1" ]; then
+		open_url "$url"
+	else
+		notify "Google Workspace" "Uploaded $(basename "$path") to Google Drive."
+	fi
 }
 
 if [ "$#" -eq 0 ]; then

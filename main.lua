@@ -156,7 +156,7 @@ local function upload()
 		return
 	end
 
-	local command = Command(OPEN)
+	local command = Command(OPEN):arg("--no-open")
 	for _, url in ipairs(urls) do
 		command:arg(url)
 	end
