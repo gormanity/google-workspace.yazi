@@ -37,13 +37,17 @@ The plugin should:
 ## Current Files
 
 - `main.lua`: Yazi plugin entrypoint.
-- `open`: packaged executable used by the Yazi `[opener]` command.
-- `resolve-upload-dir`: packaged executable used by the bindable `cd-upload-dir`
-  plugin command.
+- `helper-scripts.lua`: Lua source installed by `ya pkg`; it contains the shell
+  helper bodies that `main.lua` materializes during setup.
+- `open`: development copy of the generated executable used by the Yazi
+  `[opener]` command.
+- `resolve-upload-dir`: development copy of the generated executable used by the
+  bindable `cd-upload-dir` plugin command.
 - `README.md`: current user-facing docs.
 - `LICENSE`: MIT license.
 
-`open` and `resolve-upload-dir` must remain executable.
+`open` and `resolve-upload-dir` must remain executable and in sync with
+`helper-scripts.lua`.
 
 ## Important Decisions
 
@@ -57,8 +61,11 @@ The plugin should:
 - The upload directory must be configured in only one place: `upload_dir_id` in
   plugin setup.
 - `main.lua` writes setup values to
-  `${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/google-workspace.yazi.env`; `open`
-  and `resolve-upload-dir` load that generated file.
+  `${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/google-workspace.yazi.env`, writes
+  the generated `open` and `resolve-upload-dir` helper scripts into the plugin
+  directory, and makes them executable. This is necessary because `ya pkg`
+  installs Lua plugin files and docs, but not arbitrary extensionless helper
+  scripts.
 - `resolve-upload-dir` reads `upload_dir_id` and `drive_root` from plugin setup;
   if absent, it defaults to local My Drive root.
 - `open` and `resolve-upload-dir` support either `gws` from
@@ -160,7 +167,7 @@ Run these after edits:
 
 ```sh
 sh -n open resolve-upload-dir
-luac -p main.lua
+luac -p main.lua helper-scripts.lua
 ```
 
 If testing from an installed Yazi config, also run:

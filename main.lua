@@ -1,7 +1,9 @@
 local CONFIG_HOME = os.getenv("YAZI_CONFIG_HOME") or (os.getenv("HOME") .. "/.config/yazi")
 local CONFIG_PATH = CONFIG_HOME .. "/google-workspace.yazi.env"
-local OPEN = CONFIG_HOME .. "/plugins/google-workspace.yazi/open"
-local RESOLVE_UPLOAD_DIR = CONFIG_HOME .. "/plugins/google-workspace.yazi/resolve-upload-dir"
+local PLUGIN_DIR = CONFIG_HOME .. "/plugins/google-workspace.yazi"
+local HELPER_SCRIPTS = PLUGIN_DIR .. "/helper-scripts.lua"
+local OPEN = PLUGIN_DIR .. "/open"
+local RESOLVE_UPLOAD_DIR = PLUGIN_DIR .. "/resolve-upload-dir"
 local notify
 
 local function shell_quote(value)
@@ -13,22 +15,88 @@ local function bool_value(value)
 	return value and "1" or ""
 end
 
+local function write_file(path, content)
+	local file, err = io.open(path, "w")
+	if not file then
+		return false, err
+	end
+
+	file:write(content)
+	if content:sub(-1) ~= "\n" then
+		file:write("\n")
+	end
+	file:close()
+
+	return true
+end
+
+local function chmod_executable(path)
+	local ok, _, code = os.execute("chmod +x " .. shell_quote(path))
+	return ok == true or ok == 0 or code == 0
+end
+
 local function write_config(opts)
 	opts = opts or {}
 
-	local file, err = io.open(CONFIG_PATH, "w")
-	if not file then
+	local ok, err = write_file(
+		CONFIG_PATH,
+		table.concat({
+			"GOOGLE_WORKSPACE_UPLOAD_DIR=" .. shell_quote(opts.upload_dir_id),
+			"GOOGLE_WORKSPACE_DRIVE_ROOT=" .. shell_quote(opts.drive_root),
+			"GOOGLE_WORKSPACE_DRIVE_CLI=" .. shell_quote(opts.drive_cli or "auto"),
+			"GOOGLE_WORKSPACE_URL_OPENER=" .. shell_quote(opts.url_opener),
+			"GOOGLE_WORKSPACE_CONVERT=" .. shell_quote(bool_value(opts.convert)),
+			"GOOGLE_WORKSPACE_ASSUME_YES=" .. shell_quote(bool_value(opts.assume_yes)),
+			"",
+		}, "\n")
+	)
+	if not ok then
 		notify("error", "Could not write Google Workspace config: " .. tostring(err))
+	end
+end
+
+local function load_helper_scripts()
+	if type(loadfile) ~= "function" then
+		return nil, "Lua loadfile is not available."
+	end
+
+	local chunk, err = loadfile(HELPER_SCRIPTS)
+	if not chunk then
+		return nil, err
+	end
+
+	local ok, scripts = pcall(chunk)
+	if not ok then
+		return nil, scripts
+	end
+	if type(scripts) ~= "table" or type(scripts.open) ~= "string" or type(scripts.resolve_upload_dir) ~= "string" then
+		return nil, "helper-scripts.lua did not return the expected helper scripts."
+	end
+
+	return scripts
+end
+
+local function write_executable(path, content)
+	local ok, err = write_file(path, content)
+	if not ok then
+		notify("error", "Could not write Google Workspace helper: " .. tostring(err))
 		return
 	end
 
-	file:write("GOOGLE_WORKSPACE_UPLOAD_DIR=", shell_quote(opts.upload_dir_id), "\n")
-	file:write("GOOGLE_WORKSPACE_DRIVE_ROOT=", shell_quote(opts.drive_root), "\n")
-	file:write("GOOGLE_WORKSPACE_DRIVE_CLI=", shell_quote(opts.drive_cli or "auto"), "\n")
-	file:write("GOOGLE_WORKSPACE_URL_OPENER=", shell_quote(opts.url_opener), "\n")
-	file:write("GOOGLE_WORKSPACE_CONVERT=", shell_quote(bool_value(opts.convert)), "\n")
-	file:write("GOOGLE_WORKSPACE_ASSUME_YES=", shell_quote(bool_value(opts.assume_yes)), "\n")
-	file:close()
+	if not chmod_executable(path) then
+		notify("error", "Could not make Google Workspace helper executable: " .. path)
+	end
+end
+
+local function write_helper_scripts()
+	local scripts, err = load_helper_scripts()
+	if not scripts then
+		notify("error", "Could not load Google Workspace helpers: " .. tostring(err))
+		return
+	end
+
+	write_executable(OPEN, scripts.open)
+	write_executable(RESOLVE_UPLOAD_DIR, scripts.resolve_upload_dir)
 end
 
 function notify(level, content)
@@ -149,6 +217,7 @@ return {
 		end
 
 		write_config(opts)
+		write_helper_scripts()
 	end,
 
 	entry = function(_, job)

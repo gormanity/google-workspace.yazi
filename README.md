@@ -55,13 +55,6 @@ git clone https://github.com/gormanity/google-workspace.yazi.git \
   "${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi"
 ```
 
-Make sure the packaged helper scripts are executable:
-
-```sh
-chmod +x "${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/open"
-chmod +x "${YAZI_CONFIG_HOME:-$HOME/.config/yazi}/plugins/google-workspace.yazi/resolve-upload-dir"
-```
-
 ## Configuration
 
 ### Plugin Options
@@ -80,6 +73,10 @@ require("google-workspace"):setup({
 ```
 
 All options are optional.
+
+The setup call also writes the shell helpers used by the opener and plugin
+commands. This is required for `ya pkg` installs because Yazi's package manager
+only installs plugin Lua files and documentation.
 
 | Option          | Description                                                                      | Default                    |
 | --------------- | -------------------------------------------------------------------------------- | -------------------------- |
@@ -252,12 +249,13 @@ root.
 1. Yazi dispatches matching files to the static `google_workspace` opener in
    `yazi.toml`.
 2. `require("google-workspace"):setup(...)` writes the configured options to a
-   generated file under `YAZI_CONFIG_HOME`.
-3. The packaged `open` script reads that generated config and opens Google
+   generated file under `YAZI_CONFIG_HOME` and materializes the shell helpers
+   used by the opener.
+3. The generated `open` helper reads that generated config and opens Google
    shortcut URLs directly.
 4. For regular local files, `open` uploads the file with `gws` or `gog`, then
    opens the returned Drive URL.
-5. `plugin google-workspace upload` calls the packaged `open` helper for the
+5. `plugin google-workspace upload` calls the generated `open` helper for the
    selected files, or the hovered file when nothing is selected.
 6. `plugin google-workspace open-upload-dir` opens the configured upload folder
    URL, or Drive root when no upload folder is configured.
@@ -272,7 +270,7 @@ Run the lightweight checks after edits:
 
 ```sh
 sh -n open resolve-upload-dir
-luac -p main.lua
+luac -p main.lua helper-scripts.lua
 ```
 
 When testing from an installed Yazi config, also run:
