@@ -242,9 +242,16 @@ end
 
 local function confirm_replace(path, name)
 	return ya.confirm({
-		pos = { "center", w = 62, h = 9 },
+		pos = { "center", w = 76, h = 12 },
 		title = "Google Workspace",
-		body = "A Drive file named " .. name .. " already exists. Replace it with " .. basename(path) .. "?",
+		body = table.concat({
+			"Replace the existing Drive file with the selected local file?",
+			"",
+			"Drive file: " .. name,
+			"Local file: " .. basename(path),
+			"",
+			'"Yes" replaces the Drive file. "No" cancels the upload.',
+		}, "\n"),
 	})
 end
 

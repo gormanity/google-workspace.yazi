@@ -211,24 +211,24 @@ confirm_replace() {
 			-e 'on run argv' \
 			-e 'set fileName to item 1 of argv' \
 			-e 'set driveName to item 2 of argv' \
-			-e 'display dialog "A Drive file named “" & driveName & "” already exists. Replace it with “" & fileName & "”?" with title "Google Workspace" buttons {"Cancel", "Replace"} default button "Replace" cancel button "Cancel"' \
+			-e 'display dialog "Replace the existing Drive file with this local file?" & return & return & "Drive file: " & driveName & return & "Local file: " & fileName & return & return & "Replace overwrites the Drive file. Cancel skips the upload." with title "Google Workspace" buttons {"Cancel", "Replace"} default button "Replace" cancel button "Cancel"' \
 			-e 'end run' \
 			"$file_name" "$drive_name" >/dev/null 2>&1
 		return $?
 	fi
 
 	if command -v zenity >/dev/null 2>&1; then
-		zenity --question --title="Google Workspace" --text="A Drive file named $drive_name already exists. Replace it with $file_name?" >/dev/null 2>&1
+		zenity --question --title="Google Workspace" --text="Replace the existing Drive file with this local file?\n\nDrive file: $drive_name\nLocal file: $file_name\n\n\"Yes\" replaces the Drive file. \"No\" cancels the upload." >/dev/null 2>&1
 		return $?
 	fi
 
 	if command -v kdialog >/dev/null 2>&1; then
-		kdialog --title "Google Workspace" --yesno "A Drive file named $drive_name already exists. Replace it with $file_name?" >/dev/null 2>&1
+		kdialog --title "Google Workspace" --yesno "Replace the existing Drive file with this local file?\n\nDrive file: $drive_name\nLocal file: $file_name\n\n\"Yes\" replaces the Drive file. \"No\" cancels the upload." >/dev/null 2>&1
 		return $?
 	fi
 
 	if [ -t 0 ]; then
-		printf 'A Drive file named %s already exists. Replace it with %s? [y/N] ' "$drive_name" "$file_name" >&2
+		printf 'Replace Drive file "%s" with local file "%s"? [y = replace, N = cancel] ' "$drive_name" "$file_name" >&2
 		read answer
 		case "$answer" in
 			y | Y | yes | YES)
