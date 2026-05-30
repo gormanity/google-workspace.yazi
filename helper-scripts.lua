@@ -153,11 +153,11 @@ notify() {
 
 validate_overwrite_policy() {
 	case "$OVERWRITE_POLICY" in
-		prompt | always | never)
+		prompt | always | never | cancel)
 			return 0
 			;;
 		*)
-			notify "Google Workspace" "Invalid overwrite policy '$OVERWRITE_POLICY'. Use prompt, always, or never."
+			notify "Google Workspace" "Invalid overwrite policy '$OVERWRITE_POLICY'. Use prompt, always, never, or cancel."
 			return 1
 			;;
 	esac
@@ -213,24 +213,24 @@ confirm_replace() {
 			-e 'on run argv' \
 			-e 'set fileName to item 1 of argv' \
 			-e 'set driveName to item 2 of argv' \
-			-e 'display dialog "Replace the existing Drive file with this local file?" & return & return & "Drive file: " & driveName & return & "Local file: " & fileName & return & return & "Replace overwrites the Drive file. Cancel skips the upload." with title "Google Workspace" buttons {"Cancel", "Replace"} default button "Replace" cancel button "Cancel"' \
+			-e 'display dialog "Replace the existing Drive file with this local file?" & return & return & "Drive file: " & driveName & return & "Local file: " & fileName & return & return & "Replace overwrites the Drive file. Cancel shows upload options." with title "Google Workspace" buttons {"Cancel", "Replace"} default button "Replace" cancel button "Cancel"' \
 			-e 'end run' \
 			"$file_name" "$drive_name" >/dev/null 2>&1
 		return $?
 	fi
 
 	if command -v zenity >/dev/null 2>&1; then
-		zenity --question --title="Google Workspace" --text="Replace the existing Drive file with this local file?\n\nDrive file: $drive_name\nLocal file: $file_name\n\n\"Yes\" replaces the Drive file. \"No\" cancels the upload." >/dev/null 2>&1
+		zenity --question --title="Google Workspace" --text="Replace the existing Drive file with this local file?\n\nDrive file: $drive_name\nLocal file: $file_name\n\n\"Yes\" replaces the Drive file. \"No\" shows upload options." >/dev/null 2>&1
 		return $?
 	fi
 
 	if command -v kdialog >/dev/null 2>&1; then
-		kdialog --title "Google Workspace" --yesno "Replace the existing Drive file with this local file?\n\nDrive file: $drive_name\nLocal file: $file_name\n\n\"Yes\" replaces the Drive file. \"No\" cancels the upload." >/dev/null 2>&1
+		kdialog --title "Google Workspace" --yesno "Replace the existing Drive file with this local file?\n\nDrive file: $drive_name\nLocal file: $file_name\n\n\"Yes\" replaces the Drive file. \"No\" shows upload options." >/dev/null 2>&1
 		return $?
 	fi
 
 	if [ -t 0 ]; then
-		printf 'Replace Drive file "%s" with local file "%s"? [y = replace, N = cancel] ' "$drive_name" "$file_name" >&2
+		printf 'Replace Drive file "%s" with local file "%s"? [y = replace, N = upload options] ' "$drive_name" "$file_name" >&2
 		read answer
 		case "$answer" in
 			y | Y | yes | YES)
@@ -239,7 +239,46 @@ confirm_replace() {
 		esac
 	fi
 
-	notify "Google Workspace" "Could not confirm replacement. Use --overwrite always or --overwrite never."
+	notify "Google Workspace" "Could not confirm replacement. Use --overwrite always, --overwrite never, or --overwrite cancel."
+	return 1
+}
+
+confirm_upload_without_replace() {
+	file_name=${1##*/}
+	drive_name=$2
+
+	if command -v osascript >/dev/null 2>&1; then
+		osascript \
+			-e 'on run argv' \
+			-e 'set fileName to item 1 of argv' \
+			-e 'set driveName to item 2 of argv' \
+			-e 'display dialog "Upload a separate Drive file without replacing the existing file?" & return & return & "Drive file: " & driveName & return & "Local file: " & fileName & return & return & "Upload creates another same-name Drive file. Cancel skips the upload." with title "Google Workspace" buttons {"Cancel", "Upload"} default button "Upload" cancel button "Cancel"' \
+			-e 'end run' \
+			"$file_name" "$drive_name" >/dev/null 2>&1
+		return $?
+	fi
+
+	if command -v zenity >/dev/null 2>&1; then
+		zenity --question --title="Google Workspace" --text="Upload a separate Drive file without replacing the existing file?\n\nDrive file: $drive_name\nLocal file: $file_name\n\n\"Yes\" uploads a separate file. \"No\" cancels the upload." >/dev/null 2>&1
+		return $?
+	fi
+
+	if command -v kdialog >/dev/null 2>&1; then
+		kdialog --title "Google Workspace" --yesno "Upload a separate Drive file without replacing the existing file?\n\nDrive file: $drive_name\nLocal file: $file_name\n\n\"Yes\" uploads a separate file. \"No\" cancels the upload." >/dev/null 2>&1
+		return $?
+	fi
+
+	if [ -t 0 ]; then
+		printf 'Upload local file "%s" as a separate Drive file without replacing "%s"? [y = upload separate, N = cancel] ' "$file_name" "$drive_name" >&2
+		read answer
+		case "$answer" in
+			y | Y | yes | YES)
+				return 0
+				;;
+		esac
+	fi
+
+	notify "Google Workspace" "Could not confirm separate upload. Use --overwrite never or --overwrite cancel."
 	return 1
 }
 
@@ -653,6 +692,7 @@ upload_path() {
 	ext=$2
 	cli=$(drive_cli) || return 1
 	replace_file_id=${REPLACE_FILE_ID:-}
+	upload_confirmed=
 
 	if [ -z "$replace_file_id" ] && [ "$SKIP_OVERWRITE_CHECK" != "1" ]; then
 		existing=$(find_existing_file "$cli" "$path" "$ext") || return 1
@@ -665,12 +705,17 @@ upload_path() {
 					replace_file_id=$existing_id
 					;;
 				never)
+					upload_confirmed=1
+					;;
+				cancel)
 					notify "Google Workspace" "Upload canceled: $existing_name already exists in Google Drive."
 					return 1
 					;;
 				prompt)
 					if confirm_replace "$path" "$existing_name"; then
 						replace_file_id=$existing_id
+					elif confirm_upload_without_replace "$path" "$existing_name"; then
+						upload_confirmed=1
 					else
 						return 1
 					fi
@@ -679,7 +724,7 @@ upload_path() {
 		fi
 	fi
 
-	if [ -z "$replace_file_id" ] && ! confirm_upload "$path"; then
+	if [ -z "$replace_file_id" ] && [ "$upload_confirmed" != "1" ] && ! confirm_upload "$path"; then
 		return 1
 	fi
 

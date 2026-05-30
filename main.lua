@@ -19,7 +19,7 @@ end
 
 local function normalize_overwrite_policy(value)
 	value = tostring(value or "prompt")
-	if value == "prompt" or value == "always" or value == "never" then
+	if value == "prompt" or value == "always" or value == "never" or value == "cancel" then
 		return value
 	end
 
@@ -250,7 +250,22 @@ local function confirm_replace(path, name)
 			"Drive file: " .. name,
 			"Local file: " .. basename(path),
 			"",
-			'"Yes" replaces the Drive file. "No" cancels the upload.',
+			'"Yes" replaces the Drive file. "No" shows upload options.',
+		}, "\n"),
+	})
+end
+
+local function confirm_upload_without_replace(path, name)
+	return ya.confirm({
+		pos = { "center", w = 76, h = 12 },
+		title = "Google Workspace",
+		body = table.concat({
+			"Upload a separate Drive file without replacing the existing file?",
+			"",
+			"Drive file: " .. name,
+			"Local file: " .. basename(path),
+			"",
+			'"Yes" uploads a separate file. "No" cancels the upload.',
 		}, "\n"),
 	})
 end
@@ -449,11 +464,15 @@ local function open_with_yazi(args)
 			elseif existing then
 				if overwrite_policy == "always" then
 					replace_file_id = existing.id
-				elseif overwrite_policy == "never" then
+				elseif overwrite_policy == "cancel" then
 					proceed = false
 					notify("warn", "Upload canceled: " .. existing.name .. " already exists in Google Drive.")
+				elseif overwrite_policy == "never" then
+					proceed = true
 				elseif confirm_replace(path, existing.name) then
 					replace_file_id = existing.id
+				elseif confirm_upload_without_replace(path, existing.name) then
+					proceed = true
 				else
 					proceed = false
 					notify("warn", "Upload canceled: " .. basename(path))

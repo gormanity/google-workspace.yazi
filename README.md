@@ -77,15 +77,15 @@ The setup call also writes the shell helpers used by the opener and plugin
 commands. This is required for `ya pkg` installs because Yazi's package manager
 only installs plugin Lua files and documentation.
 
-| Option          | Description                                                                                    | Default                    |
-| --------------- | ---------------------------------------------------------------------------------------------- | -------------------------- |
-| `upload_dir_id` | Drive folder ID to upload files into                                                           | Drive root                 |
-| `drive_root`    | Local My Drive root for `cd-upload-dir` on non-macOS or custom sync/mount setups               | Auto-detected My Drive     |
-| `drive_cli`     | Drive CLI backend: `auto`, `gws`, or `gog`                                                     | `auto` (`gws`, then `gog`) |
-| `url_opener`    | Command to open Drive URLs; receives the URL as its first argument                             | System URL opener          |
-| `convert`       | Convert supported Office and OpenDocument files to native Google Workspace files               | `false`                    |
-| `assume_yes`    | Skip the upload confirmation dialog                                                            | `false`                    |
-| `overwrite`     | What to do when an upload would replace a same-name Drive file: `prompt`, `always`, or `never` | `prompt`                   |
+| Option          | Description                                                                                      | Default                    |
+| --------------- | ------------------------------------------------------------------------------------------------ | -------------------------- |
+| `upload_dir_id` | Drive folder ID to upload files into                                                             | Drive root                 |
+| `drive_root`    | Local My Drive root for `cd-upload-dir` on non-macOS or custom sync/mount setups                 | Auto-detected My Drive     |
+| `drive_cli`     | Drive CLI backend: `auto`, `gws`, or `gog`                                                       | `auto` (`gws`, then `gog`) |
+| `url_opener`    | Command to open Drive URLs; receives the URL as its first argument                               | System URL opener          |
+| `convert`       | Convert supported Office and OpenDocument files to native Google Workspace files                 | `false`                    |
+| `assume_yes`    | Skip the upload confirmation dialog                                                              | `false`                    |
+| `overwrite`     | What to do when an upload finds a same-name Drive file: `prompt`, `always`, `never`, or `cancel` | `prompt`                   |
 
 On Linux, WSL, or any setup where the local Drive folder is not in the macOS
 Google Drive for Desktop location, set `drive_root`. The path should point at
@@ -186,9 +186,9 @@ Direct opener flags only apply when that opener is used. Plugin commands such as
 `plugin google-workspace upload` and `plugin google-workspace cd-upload-dir` use
 the `init.lua` setup.
 
-Use `--overwrite prompt`, `--overwrite always`, or `--overwrite never` in an
-opener command to override the configured overwrite policy for a specific file
-rule.
+Use `--overwrite prompt`, `--overwrite always`, `--overwrite never`, or
+`--overwrite cancel` in an opener command to override the configured overwrite
+policy for a specific file rule.
 
 ## Usage
 
@@ -219,9 +219,10 @@ set in `init.lua`. When the opener runs inside Yazi, the confirmation is shown
 inside Yazi.
 
 If the upload destination already contains a non-trashed Drive file with the
-same name, `overwrite = "prompt"` asks before replacing it,
-`overwrite = "always"` replaces it without a second prompt, and
-`overwrite = "never"` cancels the upload.
+same name, `overwrite = "prompt"` asks whether to replace it and then offers to
+upload without replacing it, `overwrite = "always"` replaces it without a second
+prompt, `overwrite = "never"` uploads another same-name Drive file without
+replacing it, and `overwrite = "cancel"` cancels the upload.
 
 You can also run `plugin google-workspace upload` from a keymap to upload the
 selected files, or the hovered file when nothing is selected, without opening
