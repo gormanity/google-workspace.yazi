@@ -100,6 +100,7 @@ require("google-workspace"):setup({
   url_opener = "wslview",
   convert = false,
   assume_yes = false,
+  overwrite = "prompt",
 })
 ```
 
@@ -116,6 +117,8 @@ Supported setup options:
 - `convert`: opt into converting supported Office files to native Google
   Workspace files.
 - `assume_yes`: skip the upload confirmation dialog.
+- `overwrite`: same-name upload policy: `prompt`, `always`, or `never`. Defaults
+  to `prompt`.
 
 If `upload_dir_id` is omitted, uploads go to Drive root.
 
