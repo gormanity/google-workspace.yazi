@@ -14,12 +14,14 @@ UPLOAD_DIR=${GOOGLE_WORKSPACE_UPLOAD_DIR:-}
 CONVERT=${GOOGLE_WORKSPACE_CONVERT:-}
 DRIVE_CLI=${GOOGLE_WORKSPACE_DRIVE_CLI:-auto}
 URL_OPENER=${GOOGLE_WORKSPACE_URL_OPENER:-}
+OVERWRITE_POLICY=${GOOGLE_WORKSPACE_OVERWRITE_POLICY:-prompt}
 OPEN_URL=
 OPEN_AFTER_UPLOAD=1
 DIRECT=
 QUIET_NOTIFY=
 FIND_EXISTING=
 REPLACE_FILE_ID=
+SKIP_OVERWRITE_CHECK=
 
 for arg do
 	if [ "$arg" = "--direct" ]; then
@@ -46,6 +48,14 @@ while [ "$#" -gt 0 ]; do
 		--convert)
 			CONVERT=1
 			shift
+			;;
+		--overwrite)
+			if [ "$#" -lt 2 ]; then
+				printf '%s\n' "--overwrite requires a value" >&2
+				exit 1
+			fi
+			OVERWRITE_POLICY=$2
+			shift 2
 			;;
 		--upload-dir-id)
 			if [ "$#" -lt 2 ]; then
@@ -90,6 +100,10 @@ while [ "$#" -gt 0 ]; do
 			fi
 			REPLACE_FILE_ID=$2
 			shift 2
+			;;
+		--skip-overwrite-check)
+			SKIP_OVERWRITE_CHECK=1
+			shift
 			;;
 		--url)
 			if [ "$#" -lt 2 ]; then
@@ -137,6 +151,18 @@ notify() {
 	printf '%s: %s\n' "$title" "$message" >&2
 }
 
+validate_overwrite_policy() {
+	case "$OVERWRITE_POLICY" in
+		prompt | always | never)
+			return 0
+			;;
+		*)
+			notify "Google Workspace" "Invalid overwrite policy '$OVERWRITE_POLICY'. Use prompt, always, or never."
+			return 1
+			;;
+	esac
+}
+
 confirm_upload() {
 	name=${1##*/}
 
@@ -175,6 +201,45 @@ confirm_upload() {
 	fi
 
 	notify "Google Workspace" "Could not confirm upload. Add --assume-yes or install zenity/kdialog."
+	return 1
+}
+
+confirm_replace() {
+	file_name=${1##*/}
+	drive_name=$2
+
+	if command -v osascript >/dev/null 2>&1; then
+		osascript \
+			-e 'on run argv' \
+			-e 'set fileName to item 1 of argv' \
+			-e 'set driveName to item 2 of argv' \
+			-e 'display dialog "A Drive file named “" & driveName & "” already exists. Replace it with “" & fileName & "”?" with title "Google Workspace" buttons {"Cancel", "Replace"} default button "Replace" cancel button "Cancel"' \
+			-e 'end run' \
+			"$file_name" "$drive_name" >/dev/null 2>&1
+		return $?
+	fi
+
+	if command -v zenity >/dev/null 2>&1; then
+		zenity --question --title="Google Workspace" --text="A Drive file named $drive_name already exists. Replace it with $file_name?" >/dev/null 2>&1
+		return $?
+	fi
+
+	if command -v kdialog >/dev/null 2>&1; then
+		kdialog --title "Google Workspace" --yesno "A Drive file named $drive_name already exists. Replace it with $file_name?" >/dev/null 2>&1
+		return $?
+	fi
+
+	if [ -t 0 ]; then
+		printf 'A Drive file named %s already exists. Replace it with %s? [y/N] ' "$drive_name" "$file_name" >&2
+		read answer
+		case "$answer" in
+			y | Y | yes | YES)
+				return 0
+				;;
+		esac
+	fi
+
+	notify "Google Workspace" "Could not confirm replacement. Use --overwrite always or --overwrite never."
 	return 1
 }
 
@@ -518,16 +583,20 @@ find_existing_file() {
 upload_and_open() {
 	path=$1
 	ext=$2
+	replace_file_id=$3
+	cli=$4
 	target=$(target_mime "$ext") || target=
-	cli=$(drive_cli) || return 1
+	if [ -z "$cli" ]; then
+		cli=$(drive_cli) || return 1
+	fi
 
 	if ! command -v jq >/dev/null 2>&1; then
 		notify "Google Workspace" "jq is required to build and parse Drive JSON responses."
 		return 1
 	fi
 
-	if [ -n "$REPLACE_FILE_ID" ]; then
-		result=$(replace_with_"$cli" "$path" "$ext" "$REPLACE_FILE_ID" 2>&1)
+	if [ -n "$replace_file_id" ]; then
+		result=$(replace_with_"$cli" "$path" "$ext" "$replace_file_id" 2>&1)
 	else
 		result=$(upload_with_"$cli" "$path" "$ext" 2>&1)
 	fi
@@ -579,6 +648,46 @@ upload_and_open() {
 	fi
 }
 
+upload_path() {
+	path=$1
+	ext=$2
+	cli=$(drive_cli) || return 1
+	replace_file_id=${REPLACE_FILE_ID:-}
+
+	if [ -z "$replace_file_id" ] && [ "$SKIP_OVERWRITE_CHECK" != "1" ]; then
+		existing=$(find_existing_file "$cli" "$path" "$ext") || return 1
+		if [ -n "$existing" ]; then
+			existing_id=${existing%%	*}
+			existing_name=${existing#*	}
+
+			case "$OVERWRITE_POLICY" in
+				always)
+					replace_file_id=$existing_id
+					;;
+				never)
+					notify "Google Workspace" "Upload canceled: $existing_name already exists in Google Drive."
+					return 1
+					;;
+				prompt)
+					if confirm_replace "$path" "$existing_name"; then
+						replace_file_id=$existing_id
+					else
+						return 1
+					fi
+					;;
+			esac
+		fi
+	fi
+
+	if [ -z "$replace_file_id" ] && ! confirm_upload "$path"; then
+		return 1
+	fi
+
+	upload_and_open "$path" "$ext" "$replace_file_id" "$cli"
+}
+
+validate_overwrite_policy || exit 1
+
 if [ "$FIND_EXISTING" = "1" ]; then
 	if [ "$#" -eq 0 ]; then
 		notify "Google Workspace" "No file was provided."
@@ -622,19 +731,11 @@ for path do
 			fi
 			;;
 		doc | docx | odp | ods | odt | pot | potx | pps | ppsx | ppt | pptx | rtf | xls | xlsm | xlsx | xsv)
-			if confirm_upload "$path"; then
-				upload_and_open "$path" "$ext" || status=1
-			else
-				status=1
-			fi
+			upload_path "$path" "$ext" || status=1
 			;;
 		*)
 			if [ -f "$path" ]; then
-				if confirm_upload "$path"; then
-					upload_and_open "$path" "$ext" || status=1
-				else
-					status=1
-				fi
+				upload_path "$path" "$ext" || status=1
 			else
 				notify "Google Workspace" "Unsupported path: $(basename "$path")"
 				status=1

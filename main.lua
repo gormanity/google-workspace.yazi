@@ -17,6 +17,16 @@ local function bool_value(value)
 	return value and "1" or ""
 end
 
+local function normalize_overwrite_policy(value)
+	value = tostring(value or "prompt")
+	if value == "prompt" or value == "always" or value == "never" then
+		return value
+	end
+
+	notify("warn", "Invalid overwrite policy '" .. value .. "'. Using prompt.")
+	return "prompt"
+end
+
 local function write_file(path, content)
 	local file, err = io.open(path, "w")
 	if not file then
@@ -49,6 +59,7 @@ local function write_config(opts)
 			"GOOGLE_WORKSPACE_URL_OPENER=" .. shell_quote(opts.url_opener),
 			"GOOGLE_WORKSPACE_CONVERT=" .. shell_quote(bool_value(opts.convert)),
 			"GOOGLE_WORKSPACE_ASSUME_YES=" .. shell_quote(bool_value(opts.assume_yes)),
+			"GOOGLE_WORKSPACE_OVERWRITE_POLICY=" .. shell_quote(normalize_overwrite_policy(opts.overwrite)),
 			"",
 		}, "\n")
 	)
@@ -213,6 +224,10 @@ local function assume_yes()
 	return config_value("GOOGLE_WORKSPACE_ASSUME_YES") == "1"
 end
 
+local function configured_overwrite_policy()
+	return normalize_overwrite_policy(config_value("GOOGLE_WORKSPACE_OVERWRITE_POLICY"))
+end
+
 local function confirm_upload(path)
 	if assume_yes() then
 		return true
@@ -281,6 +296,7 @@ local function parse_open_args(args)
 		paths = {},
 		assume_yes = false,
 		no_open = false,
+		overwrite = nil,
 		url_mode = false,
 	}
 
@@ -300,6 +316,14 @@ local function parse_open_args(args)
 		elseif arg == "--convert" then
 			parsed.helper_args[#parsed.helper_args + 1] = arg
 			i = i + 1
+		elseif arg == "--overwrite" then
+			parsed.helper_args[#parsed.helper_args + 1] = arg
+			if args[i + 1] then
+				parsed.args[#parsed.args + 1] = args[i + 1]
+				parsed.helper_args[#parsed.helper_args + 1] = args[i + 1]
+				parsed.overwrite = args[i + 1]
+			end
+			i = i + 2
 		elseif arg == "--no-notify" or arg == "--direct" then
 			i = i + 1
 		elseif arg == "--url" then
@@ -337,7 +361,7 @@ local function parse_open_args(args)
 end
 
 local function run_open_helper(args)
-	local command = Command(OPEN):arg("--direct"):arg("--assume-yes"):arg("--no-notify")
+	local command = Command(OPEN):arg("--direct"):arg("--assume-yes"):arg("--no-notify"):arg("--skip-overwrite-check")
 	for _, arg in ipairs(args) do
 		command:arg(arg)
 	end
@@ -394,6 +418,7 @@ end
 
 local function open_with_yazi(args)
 	local parsed = parse_open_args(args)
+	local overwrite_policy = normalize_overwrite_policy(parsed.overwrite or configured_overwrite_policy())
 
 	if parsed.url_mode then
 		run_open_helper(parsed.helper_args)
@@ -415,7 +440,12 @@ local function open_with_yazi(args)
 			if not ok then
 				proceed = false
 			elseif existing then
-				if confirm_replace(path, existing.name) then
+				if overwrite_policy == "always" then
+					replace_file_id = existing.id
+				elseif overwrite_policy == "never" then
+					proceed = false
+					notify("warn", "Upload canceled: " .. existing.name .. " already exists in Google Drive.")
+				elseif confirm_replace(path, existing.name) then
 					replace_file_id = existing.id
 				else
 					proceed = false
