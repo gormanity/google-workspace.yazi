@@ -270,6 +270,120 @@ local function confirm_upload_without_replace(path, name)
 	})
 end
 
+local CONFLICT_DIALOG_OPTIONS = {
+	{
+		action = "replace",
+		key = "r",
+		label = "Replace",
+		detail = "Replace the Drive file with the selected local file.",
+	},
+	{
+		action = "keep",
+		key = "u",
+		label = "Upload another",
+		detail = "Create a separate same-name Drive file.",
+	},
+	{
+		action = "cancel",
+		key = "c",
+		label = "Cancel",
+		detail = "Do not upload this file.",
+	},
+}
+
+local CONFLICT_DIALOG_KEYS = {
+	{ on = "k", run = "up" },
+	{ on = "<Up>", run = "up" },
+	{ on = "j", run = "down" },
+	{ on = "<Down>", run = "down" },
+	{ on = "<Tab>", run = "down" },
+	{ on = "<Enter>", run = "choose" },
+	{ on = "r", run = "replace" },
+	{ on = "u", run = "keep" },
+	{ on = "c", run = "cancel" },
+	{ on = "q", run = "cancel" },
+	{ on = "<Esc>", run = "cancel" },
+}
+
+local show_conflict_dialog = ya.sync(function(self, path, name)
+	self.conflict_path = path
+	self.conflict_name = name
+	self.conflict_cursor = 0
+
+	local ok, child = pcall(function()
+		return Modal:children_add(self, 10)
+	end)
+
+	if not ok or not child then
+		return false
+	end
+
+	self.conflict_child = child
+	ui.render()
+	return true
+end)
+
+local hide_conflict_dialog = ya.sync(function(self)
+	if not self.conflict_child then
+		return
+	end
+
+	pcall(function()
+		Modal:children_remove(self.conflict_child)
+	end)
+	self.conflict_child = nil
+	ui.render()
+end)
+
+local move_conflict_dialog_cursor = ya.sync(function(self, offset)
+	self.conflict_cursor = ya.clamp(0, (self.conflict_cursor or 0) + offset, #CONFLICT_DIALOG_OPTIONS - 1)
+	ui.render()
+end)
+
+local selected_conflict_dialog_action = ya.sync(function(self)
+	local option = CONFLICT_DIALOG_OPTIONS[(self.conflict_cursor or 0) + 1]
+	return option and option.action or "cancel"
+end)
+
+local function choose_conflict_action_with_confirm(path, name)
+	if confirm_replace(path, name) then
+		return "replace"
+	end
+	if confirm_upload_without_replace(path, name) then
+		return "keep"
+	end
+
+	return "cancel"
+end
+
+local function choose_conflict_action(path, name)
+	local ok, shown = pcall(show_conflict_dialog, path, name)
+	if not ok or not shown then
+		return choose_conflict_action_with_confirm(path, name)
+	end
+
+	local action = "cancel"
+	while true do
+		local cand = CONFLICT_DIALOG_KEYS[ya.which({ cands = CONFLICT_DIALOG_KEYS, silent = true })]
+		if cand then
+			if cand.run == "up" then
+				move_conflict_dialog_cursor(-1)
+			elseif cand.run == "down" then
+				move_conflict_dialog_cursor(1)
+			elseif cand.run == "choose" then
+				action = selected_conflict_dialog_action()
+				break
+			else
+				action = cand.run
+				break
+			end
+		end
+	end
+
+	hide_conflict_dialog()
+	return action
+end
+
 local function cd_upload_dir()
 	local command = Command(RESOLVE_UPLOAD_DIR)
 
@@ -469,13 +583,16 @@ local function open_with_yazi(args)
 					notify("warn", "Upload canceled: " .. existing.name .. " already exists in Google Drive.")
 				elseif overwrite_policy == "never" then
 					proceed = true
-				elseif confirm_replace(path, existing.name) then
-					replace_file_id = existing.id
-				elseif confirm_upload_without_replace(path, existing.name) then
-					proceed = true
 				else
-					proceed = false
-					notify("warn", "Upload canceled: " .. basename(path))
+					local action = choose_conflict_action(path, existing.name)
+					if action == "replace" then
+						replace_file_id = existing.id
+					elseif action == "keep" then
+						proceed = true
+					else
+						proceed = false
+						notify("warn", "Upload canceled: " .. basename(path))
+					end
 				end
 			elseif not parsed.assume_yes and not confirm_upload(path) then
 				proceed = false
@@ -556,38 +673,99 @@ local function subscribe_open_event(plugin_id)
 	end
 end
 
-return {
-	setup = function(self, opts)
-		if opts == nil and type(self) == "table" and not self.entry then
-			opts = self
+local M = {}
+
+function M:layout(area)
+	local width = math.min(88, math.max(1, area.w - 4))
+	local height = math.min(15, math.max(1, area.h - 2))
+
+	self._area = ui.Rect({
+		x = area.x + math.max(0, math.floor((area.w - width) / 2)),
+		y = area.y + math.max(0, math.floor((area.h - height) / 2)),
+		w = width,
+		h = height,
+	})
+end
+
+function M:new(area)
+	self:layout(area)
+	return self
+end
+
+function M:reflow()
+	return { self }
+end
+
+function M:redraw()
+	local lines = {
+		ui.Line("A Drive file with this name already exists."),
+		ui.Line(""),
+		ui.Line({ ui.Span("Drive file: "):bold(), ui.Span(self.conflict_name or "") }),
+		ui.Line({ ui.Span("Local file: "):bold(), ui.Span(basename(self.conflict_path)) }),
+		ui.Line(""),
+	}
+
+	for index, option in ipairs(CONFLICT_DIALOG_OPTIONS) do
+		local marker = index == (self.conflict_cursor or 0) + 1 and ">" or " "
+		local line = ui.Line({
+			ui.Span(marker .. " "),
+			ui.Span("[" .. option.key .. "] "):bold(),
+			ui.Span(option.label):bold(),
+			ui.Span(" - " .. option.detail),
+		})
+
+		if marker == ">" then
+			line = line:reverse()
 		end
 
-		write_config(opts)
-		write_helper_scripts()
-		if type(self) == "table" and self._id then
-			subscribe_open_event(self._id)
-		end
-	end,
+		lines[#lines + 1] = line
+	end
 
-	entry = function(_, job)
-		local args = job.args or {}
-		if args[1] == "open-remote" then
-			open_with_yazi(decode_args(args[2]))
-			return
-		end
-		if args[1] == "cd-upload-dir" then
-			cd_upload_dir()
-			return
-		end
-		if args[1] == "upload" then
-			upload()
-			return
-		end
-		if args[1] == "open-upload-dir" then
-			open_upload_dir()
-			return
-		end
+	lines[#lines + 1] = ui.Line("")
+	lines[#lines + 1] = ui.Line("Use Up/Down or j/k, Enter, or r/u/c."):dim()
 
-		ya.mgr_emit("open", {})
-	end,
-}
+	return {
+		ui.Clear(self._area),
+		ui.Border(ui.Edge.ALL)
+			:area(self._area)
+			:type(ui.Border.ROUNDED)
+			:title(ui.Line("Google Workspace"):align(ui.Align.CENTER)),
+		ui.Text(lines):area(self._area:pad(ui.Pad(1, 2, 1, 2))):wrap(ui.Wrap.YES),
+	}
+end
+
+function M:setup(opts)
+	if opts == nil and type(self) == "table" and not self.entry then
+		opts = self
+	end
+
+	write_config(opts)
+	write_helper_scripts()
+	if type(self) == "table" and self._id then
+		subscribe_open_event(self._id)
+	end
+end
+
+function M:entry(job)
+	local args = job.args or {}
+	if args[1] == "open-remote" then
+		open_with_yazi(decode_args(args[2]))
+		return
+	end
+	if args[1] == "cd-upload-dir" then
+		cd_upload_dir()
+		return
+	end
+	if args[1] == "upload" then
+		upload()
+		return
+	end
+	if args[1] == "open-upload-dir" then
+		open_upload_dir()
+		return
+	end
+
+	ya.mgr_emit("open", {})
+end
+
+return M

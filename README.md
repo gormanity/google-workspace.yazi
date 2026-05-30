@@ -219,10 +219,10 @@ set in `init.lua`. When the opener runs inside Yazi, the confirmation is shown
 inside Yazi.
 
 If the upload destination already contains a non-trashed Drive file with the
-same name, `overwrite = "prompt"` asks whether to replace it and then offers to
-upload without replacing it, `overwrite = "always"` replaces it without a second
-prompt, `overwrite = "never"` uploads another same-name Drive file without
-replacing it, and `overwrite = "cancel"` cancels the upload.
+same name, `overwrite = "prompt"` lets you replace the Drive file, upload
+another same-name Drive file, or cancel the upload. `overwrite = "always"`
+replaces it without a prompt, `overwrite = "never"` uploads another same-name
+Drive file without replacing it, and `overwrite = "cancel"` cancels the upload.
 
 You can also run `plugin google-workspace upload` from a keymap to upload the
 selected files, or the hovered file when nothing is selected, without opening
