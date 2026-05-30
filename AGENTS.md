@@ -117,8 +117,9 @@ Supported setup options:
 - `convert`: opt into converting supported Office files to native Google
   Workspace files.
 - `assume_yes`: skip the upload confirmation dialog.
-- `overwrite`: same-name upload policy: `prompt`, `always`, or `never`. Defaults
-  to `prompt`.
+- `overwrite`: same-name upload policy: `prompt`, `always`, `never`, or
+  `cancel`. `prompt` asks, `always` replaces, `never` uploads a separate
+  same-name file, and `cancel` cancels the upload. Defaults to `prompt`.
 
 If `upload_dir_id` is omitted, uploads go to Drive root.
 
