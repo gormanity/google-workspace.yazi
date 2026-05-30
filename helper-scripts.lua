@@ -18,6 +18,8 @@ OPEN_URL=
 OPEN_AFTER_UPLOAD=1
 DIRECT=
 QUIET_NOTIFY=
+FIND_EXISTING=
+REPLACE_FILE_ID=
 
 for arg do
 	if [ "$arg" = "--direct" ]; then
@@ -76,6 +78,18 @@ while [ "$#" -gt 0 ]; do
 		--no-notify)
 			QUIET_NOTIFY=1
 			shift
+			;;
+		--find-existing)
+			FIND_EXISTING=1
+			shift
+			;;
+		--replace-file-id)
+			if [ "$#" -lt 2 ]; then
+				printf '%s\n' "--replace-file-id requires a value" >&2
+				exit 1
+			fi
+			REPLACE_FILE_ID=$2
+			shift 2
 			;;
 		--url)
 			if [ "$#" -lt 2 ]; then
@@ -298,6 +312,19 @@ target_kind() {
 	esac
 }
 
+drive_upload_name() {
+	path=$1
+	ext=$2
+	name=${path##*/}
+	stem=${name%.*}
+
+	if target_mime "$ext" >/dev/null 2>&1; then
+		printf '%s\n' "$stem"
+	else
+		printf '%s\n' "$name"
+	fi
+}
+
 drive_cli() {
 	case "$DRIVE_CLI" in
 		gws)
@@ -339,18 +366,18 @@ upload_with_gws() {
 	path=$1
 	ext=$2
 	name=${path##*/}
-	stem=${name%.*}
+	upload_name=$(drive_upload_name "$path" "$ext")
 	dir=${path%/*}
 	target=$(target_mime "$ext") || target=
 
 	if [ -n "$UPLOAD_DIR" ] && [ -n "$target" ]; then
-		metadata=$(jq -cn --arg name "$stem" --arg mimeType "$target" --arg parent "$UPLOAD_DIR" '{name: $name, mimeType: $mimeType, parents: [$parent]}')
+		metadata=$(jq -cn --arg name "$upload_name" --arg mimeType "$target" --arg parent "$UPLOAD_DIR" '{name: $name, mimeType: $mimeType, parents: [$parent]}')
 	elif [ -n "$UPLOAD_DIR" ]; then
-		metadata=$(jq -cn --arg name "$name" --arg parent "$UPLOAD_DIR" '{name: $name, parents: [$parent]}')
+		metadata=$(jq -cn --arg name "$upload_name" --arg parent "$UPLOAD_DIR" '{name: $name, parents: [$parent]}')
 	elif [ -n "$target" ]; then
-		metadata=$(jq -cn --arg name "$stem" --arg mimeType "$target" '{name: $name, mimeType: $mimeType}')
+		metadata=$(jq -cn --arg name "$upload_name" --arg mimeType "$target" '{name: $name, mimeType: $mimeType}')
 	else
-		metadata=$(jq -cn --arg name "$name" '{name: $name}')
+		metadata=$(jq -cn --arg name "$upload_name" '{name: $name}')
 	fi
 	params='{"fields":"id,name,mimeType,webViewLink"}'
 	if [ "$dir" = "$path" ]; then
@@ -360,11 +387,27 @@ upload_with_gws() {
 	cd "$dir" && gws drive files create --params "$params" --json "$metadata" --upload "$name"
 }
 
+replace_with_gws() {
+	path=$1
+	ext=$2
+	file_id=$3
+	name=${path##*/}
+	upload_name=$(drive_upload_name "$path" "$ext")
+	dir=${path%/*}
+	metadata=$(jq -cn --arg name "$upload_name" '{name: $name}')
+	params=$(jq -cn --arg fileId "$file_id" '{fileId: $fileId, fields: "id,name,mimeType,webViewLink"}')
+	if [ "$dir" = "$path" ]; then
+		dir=.
+	fi
+
+	cd "$dir" && gws drive files update --params "$params" --json "$metadata" --upload "$name"
+}
+
 upload_with_gog() {
 	path=$1
 	ext=$2
 	name=${path##*/}
-	stem=${name%.*}
+	upload_name=$(drive_upload_name "$path" "$ext")
 	target=$(target_mime "$ext") || target=
 
 	set -- drive upload "$path" --json --results-only --no-input
@@ -372,16 +415,104 @@ upload_with_gog() {
 		set -- "$@" --parent "$UPLOAD_DIR"
 	fi
 	if [ -n "$target" ] && kind=$(target_kind "$target"); then
-		set -- "$@" --convert-to "$kind" --name "$stem"
-	elif [ "$name" != "$stem" ]; then
-		set -- "$@" --name "$name"
+		set -- "$@" --convert-to "$kind" --name "$upload_name"
+	else
+		set -- "$@" --name "$upload_name"
 	fi
 
 	gog "$@"
 }
 
+replace_with_gog() {
+	path=$1
+	ext=$2
+	file_id=$3
+	upload_name=$(drive_upload_name "$path" "$ext")
+
+	gog drive upload "$path" --replace "$file_id" --name "$upload_name" --json --results-only --no-input
+}
+
 json_field() {
 	jq -r "$1 // .result$1 // .data$1 // empty"
+}
+
+drive_name_query() {
+	jq -nr --arg name "$1" '
+		def esc: gsub("\\\\"; "\\\\\\\\") | gsub("\u0027"; "\\\u0027");
+		"name = \u0027\($name | esc)\u0027 and trashed = false"
+	'
+}
+
+drive_parent_query() {
+	jq -nr --arg name "$1" --arg parent "$2" '
+		def esc: gsub("\\\\"; "\\\\\\\\") | gsub("\u0027"; "\\\u0027");
+		"name = \u0027\($name | esc)\u0027 and \u0027\($parent | esc)\u0027 in parents and trashed = false"
+	'
+}
+
+first_matching_file() {
+	name=$1
+	jq -c --arg name "$name" '
+		def files:
+			if type == "array" then .
+			elif (.files? | type) == "array" then .files
+			elif (.result? | type) == "array" then .result
+			elif (.result.files? | type) == "array" then .result.files
+			elif (.data? | type) == "array" then .data
+			elif (.data.files? | type) == "array" then .data.files
+			elif (.items? | type) == "array" then .items
+			else [] end;
+		files
+		| map(select((.name // "") == $name and ((.trashed // false) | not)))
+		| .[0] // empty
+	'
+}
+
+find_existing_with_gws() {
+	name=$1
+	parent=${UPLOAD_DIR:-root}
+	q=$(drive_parent_query "$name" "$parent") || return 1
+	params=$(jq -cn --arg q "$q" '{q: $q, fields: "files(id,name,mimeType,webViewLink,trashed)", pageSize: 10}')
+
+	gws drive files list --params "$params"
+}
+
+find_existing_with_gog() {
+	name=$1
+	parent=${UPLOAD_DIR:-root}
+	q=$(drive_name_query "$name") || return 1
+
+	gog drive ls --json --results-only --no-input --max 10 --parent "$parent" --query "$q"
+}
+
+find_existing_file() {
+	cli=$1
+	path=$2
+	ext=$3
+	name=$(drive_upload_name "$path" "$ext")
+
+	result=$(find_existing_with_"$cli" "$name" 2>&1)
+	code=$?
+	if [ "$code" -ne 0 ]; then
+		printf '%s\n' "$result" >&2
+		return "$code"
+	fi
+
+	json=$(printf '%s\n' "$result" | sed -n '/^[[:space:]]*[\[{]/,$p')
+	if [ -z "$json" ]; then
+		return 0
+	fi
+
+	existing=$(printf '%s\n' "$json" | first_matching_file "$name") || return 1
+	if [ -z "$existing" ]; then
+		return 0
+	fi
+
+	id=$(printf '%s\n' "$existing" | json_field ".id")
+	existing_name=$(printf '%s\n' "$existing" | json_field ".name")
+	if [ -n "$id" ]; then
+		printf '%s\t%s\n' "$id" "$existing_name"
+	fi
 }
 
 upload_and_open() {
@@ -395,7 +526,11 @@ upload_and_open() {
 		return 1
 	fi
 
-	result=$(upload_with_"$cli" "$path" "$ext" 2>&1)
+	if [ -n "$REPLACE_FILE_ID" ]; then
+		result=$(replace_with_"$cli" "$path" "$ext" "$REPLACE_FILE_ID" 2>&1)
+	else
+		result=$(upload_with_"$cli" "$path" "$ext" 2>&1)
+	fi
 	code=$?
 
 	if [ "$code" -ne 0 ]; then
@@ -443,6 +578,24 @@ upload_and_open() {
 		notify "Google Workspace" "Uploaded $(basename "$path") to Google Drive."
 	fi
 }
+
+if [ "$FIND_EXISTING" = "1" ]; then
+	if [ "$#" -eq 0 ]; then
+		notify "Google Workspace" "No file was provided."
+		exit 1
+	fi
+
+	if ! command -v jq >/dev/null 2>&1; then
+		notify "Google Workspace" "jq is required to check for existing Drive files."
+		exit 1
+	fi
+
+	cli=$(drive_cli) || exit 1
+	path=$1
+	ext=$(extension "$path") || ext=
+	find_existing_file "$cli" "$path" "$ext"
+	exit $?
+fi
 
 if [ "$#" -eq 0 ]; then
 	if [ -n "$OPEN_URL" ]; then

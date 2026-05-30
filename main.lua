@@ -225,6 +225,14 @@ local function confirm_upload(path)
 	})
 end
 
+local function confirm_replace(path, name)
+	return ya.confirm({
+		pos = { "center", w = 62, h = 9 },
+		title = "Google Workspace",
+		body = "A Drive file named " .. name .. " already exists. Replace it with " .. basename(path) .. "?",
+	})
+end
+
 local function cd_upload_dir()
 	local command = Command(RESOLVE_UPLOAD_DIR)
 
@@ -349,6 +357,41 @@ local function run_open_helper(args)
 	return true
 end
 
+local function find_existing_file(path, parsed)
+	local command = Command(OPEN):arg("--direct"):arg("--no-notify"):arg("--find-existing")
+	for _, arg in ipairs(parsed.helper_args) do
+		if arg ~= "--assume-yes" and arg ~= "--no-open" then
+			command:arg(arg)
+		end
+	end
+	command:arg("--"):arg(path)
+
+	local output, err = command:output()
+	if not output then
+		notify("error", tostring(err))
+		return nil, false
+	end
+
+	if not output.status.success then
+		local stderr = output.stderr and tostring(output.stderr) or "Could not check Google Drive for existing files."
+		notify("error", stderr:gsub("%s+$", ""))
+		return nil, false
+	end
+
+	local stdout = tostring(output.stdout):gsub("%s+$", "")
+	if stdout == "" then
+		return nil, true
+	end
+
+	local id, name = stdout:match("^([^\t\r\n]+)\t(.*)$")
+	if not id then
+		notify("error", "Could not parse existing Google Drive file response.")
+		return nil, false
+	end
+
+	return { id = id, name = name ~= "" and name or basename(path) }, true
+end
+
 local function open_with_yazi(args)
 	local parsed = parse_open_args(args)
 
@@ -364,13 +407,34 @@ local function open_with_yazi(args)
 
 	for _, path in ipairs(parsed.paths) do
 		local uploads_file = is_file(path) and not is_workspace_shortcut(path)
+		local replace_file_id = nil
+		local proceed = true
 
-		if uploads_file and not parsed.assume_yes and not confirm_upload(path) then
-			notify("warn", "Upload canceled: " .. basename(path))
-		else
+		if uploads_file then
+			local existing, ok = find_existing_file(path, parsed)
+			if not ok then
+				proceed = false
+			elseif existing then
+				if confirm_replace(path, existing.name) then
+					replace_file_id = existing.id
+				else
+					proceed = false
+					notify("warn", "Upload canceled: " .. basename(path))
+				end
+			elseif not parsed.assume_yes and not confirm_upload(path) then
+				proceed = false
+				notify("warn", "Upload canceled: " .. basename(path))
+			end
+		end
+
+		if proceed then
 			local helper_args = {}
 			for _, arg in ipairs(parsed.helper_args) do
 				helper_args[#helper_args + 1] = arg
+			end
+			if replace_file_id then
+				helper_args[#helper_args + 1] = "--replace-file-id"
+				helper_args[#helper_args + 1] = replace_file_id
 			end
 			helper_args[#helper_args + 1] = "--"
 			helper_args[#helper_args + 1] = path
