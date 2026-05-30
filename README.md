@@ -6,7 +6,8 @@ A Yazi plugin and opener for Google Workspace and Google Drive workflows.
 
 - Resolve Google Drive shortcut files in local Drive folders and open them in
   the browser
-- Upload local files to Drive, then open them in the browser
+- Upload local files to Drive from a Yazi confirmation prompt, then open them in
+  the browser
 - Optionally convert Office and OpenDocument files to native Google Workspace
   formats while uploading
 - Jump from Yazi to the default Drive upload folder
@@ -27,12 +28,9 @@ folder-resolution workflows.
 
 Platform notes:
 
-- On macOS, the helper scripts use the system `open` and `osascript` commands.
-  `cd-upload-dir` can find Google Drive for Desktop's local My Drive folder
-  automatically.
-- On Linux, install `xdg-open` or `gio` for opening URLs. For notifications and
-  upload confirmation dialogs, install `notify-send`, `zenity`, or `kdialog`, or
-  use `--assume-yes`.
+- On macOS, the helper scripts use the system `open` command. `cd-upload-dir`
+  can find Google Drive for Desktop's local My Drive folder automatically.
+- On Linux, install `xdg-open` or `gio` for opening URLs.
 - Use `--url-opener` when you want a specific command to open returned Drive
   URLs, such as `wslview` in WSL. The command receives the URL as its first
   argument.
@@ -104,6 +102,9 @@ google_workspace = [
 ]
 ```
 
+When this opener runs inside Yazi, the helper publishes the request back to the
+plugin so confirmations, status messages, and errors can use Yazi's UI.
+
 Then attach it to the file extensions you want Yazi to open with Google
 Workspace:
 
@@ -154,7 +155,8 @@ desc = "Open Google Drive upload directory"
 
 The `init.lua` setup is the default configuration for the plugin commands and
 the standard `google_workspace` opener. Individual opener commands can still
-pass flags to override those defaults for a specific file rule.
+pass flags to override those defaults for a specific file rule. Those flags are
+passed through the Yazi bridge before the helper runs.
 
 For example, to convert Word documents but upload Excel files in their original
 format:
@@ -207,7 +209,8 @@ Use the configured opener on regular local files to upload them to Drive and
 open the resulting Drive URL in the browser.
 
 The opener asks for confirmation before uploading unless `assume_yes = true` is
-set in `init.lua`.
+set in `init.lua`. When the opener runs inside Yazi, the confirmation is shown
+inside Yazi.
 
 You can also run `plugin google-workspace upload` from a keymap to upload the
 selected files, or the hovered file when nothing is selected, without opening
@@ -249,22 +252,27 @@ root.
 
 1. Yazi dispatches matching files to the static `google_workspace` opener in
    `yazi.toml`.
-2. `require("google-workspace"):setup(...)` writes the configured options to a
+2. Inside a Yazi session, the generated `open` helper publishes the opener
+   request back to the plugin with `ya pub`, and the plugin receives it with
+   `ps.sub_remote`.
+3. `require("google-workspace"):setup(...)` writes the configured options to a
    generated file under `YAZI_CONFIG_HOME` and materializes the shell helpers
    used by the opener.
-3. The generated `open` helper reads that generated config and opens Google
+4. The plugin uses Yazi confirmations and notifications, then calls the helper
+   with direct mode enabled.
+5. The generated `open` helper reads the generated config and opens Google
    shortcut URLs directly.
-4. For regular local files, `open` uploads the file with `gws` or `gog`, then
+6. For regular local files, `open` uploads the file with `gws` or `gog`, then
    opens the returned Drive URL.
-5. `plugin google-workspace upload` calls the generated `open` helper with
+7. `plugin google-workspace upload` calls the generated `open` helper with
    browser opening disabled for the selected files, or the hovered file when
    nothing is selected.
-6. `plugin google-workspace open-upload-dir` opens the configured upload folder
+8. `plugin google-workspace open-upload-dir` opens the configured upload folder
    URL, or Drive root when no upload folder is configured.
-7. `plugin google-workspace` without arguments delegates to Yazi's built-in
+9. `plugin google-workspace` without arguments delegates to Yazi's built-in
    `open`, so it uses the same `[open]` and `[opener]` rules.
-8. `plugin google-workspace cd-upload-dir` runs `resolve-upload-dir` and emits a
-   Yazi `cd` command for the resolved local Drive path.
+10. `plugin google-workspace cd-upload-dir` runs `resolve-upload-dir` and emits
+    a Yazi `cd` command for the resolved local Drive path.
 
 ## Development
 

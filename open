@@ -14,9 +14,27 @@ DRIVE_CLI=${GOOGLE_WORKSPACE_DRIVE_CLI:-auto}
 URL_OPENER=${GOOGLE_WORKSPACE_URL_OPENER:-}
 OPEN_URL=
 OPEN_AFTER_UPLOAD=1
+DIRECT=
+QUIET_NOTIFY=
+
+for arg do
+	if [ "$arg" = "--direct" ]; then
+		DIRECT=1
+		break
+	fi
+done
+
+if [ -n "${YAZI_ID:-}" ] && [ -z "$DIRECT" ] && command -v ya >/dev/null 2>&1; then
+	if ya pub google-workspace-open --list "$@"; then
+		exit 0
+	fi
+fi
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
+		--direct)
+			shift
+			;;
 		--assume-yes)
 			ASSUME_YES=1
 			shift
@@ -53,6 +71,10 @@ while [ "$#" -gt 0 ]; do
 			OPEN_AFTER_UPLOAD=
 			shift
 			;;
+		--no-notify)
+			QUIET_NOTIFY=1
+			shift
+			;;
 		--url)
 			if [ "$#" -lt 2 ]; then
 				printf '%s\n' "--url requires a value" >&2
@@ -78,6 +100,11 @@ done
 notify() {
 	title=$1
 	message=$2
+
+	if [ "$QUIET_NOTIFY" = "1" ]; then
+		printf '%s: %s\n' "$title" "$message" >&2
+		return 0
+	fi
 
 	if command -v osascript >/dev/null 2>&1; then
 		osascript \
@@ -410,7 +437,7 @@ upload_and_open() {
 
 	if [ "$OPEN_AFTER_UPLOAD" = "1" ]; then
 		open_url "$url"
-	else
+	elif [ "$QUIET_NOTIFY" != "1" ]; then
 		notify "Google Workspace" "Uploaded $(basename "$path") to Google Drive."
 	fi
 }
