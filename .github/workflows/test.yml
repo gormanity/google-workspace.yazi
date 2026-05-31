@@ -30,8 +30,6 @@ jobs:
             jq \
             lua5.4 \
             unzip
-          sudo update-alternatives --install /usr/bin/lua lua /usr/bin/lua5.4 54
-          sudo update-alternatives --install /usr/bin/luac luac /usr/bin/luac5.4 54
 
       - name: Install Yazi
         run: |
