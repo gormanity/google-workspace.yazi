@@ -427,11 +427,9 @@ end)
 
 local function parse_open_args(args)
 	local parsed = {
-		args = {},
 		helper_args = {},
 		paths = {},
 		assume_yes = false,
-		no_open = false,
 		overwrite = nil,
 		url_mode = false,
 	}
@@ -439,7 +437,6 @@ local function parse_open_args(args)
 	local i = 1
 	while i <= #args do
 		local arg = args[i]
-		parsed.args[#parsed.args + 1] = arg
 
 		if arg == "--assume-yes" then
 			parsed.helper_args[#parsed.helper_args + 1] = arg
@@ -447,7 +444,6 @@ local function parse_open_args(args)
 			i = i + 1
 		elseif arg == "--no-open" then
 			parsed.helper_args[#parsed.helper_args + 1] = arg
-			parsed.no_open = true
 			i = i + 1
 		elseif arg == "--convert" then
 			parsed.helper_args[#parsed.helper_args + 1] = arg
@@ -455,7 +451,6 @@ local function parse_open_args(args)
 		elseif arg == "--overwrite" then
 			parsed.helper_args[#parsed.helper_args + 1] = arg
 			if args[i + 1] then
-				parsed.args[#parsed.args + 1] = args[i + 1]
 				parsed.helper_args[#parsed.helper_args + 1] = args[i + 1]
 				parsed.overwrite = args[i + 1]
 			end
@@ -466,21 +461,18 @@ local function parse_open_args(args)
 			parsed.helper_args[#parsed.helper_args + 1] = arg
 			parsed.url_mode = true
 			if args[i + 1] then
-				parsed.args[#parsed.args + 1] = args[i + 1]
 				parsed.helper_args[#parsed.helper_args + 1] = args[i + 1]
 			end
 			i = i + 2
 		elseif arg == "--upload-dir-id" or arg == "--drive-cli" or arg == "--url-opener" then
 			parsed.helper_args[#parsed.helper_args + 1] = arg
 			if args[i + 1] then
-				parsed.args[#parsed.args + 1] = args[i + 1]
 				parsed.helper_args[#parsed.helper_args + 1] = args[i + 1]
 			end
 			i = i + 2
 		elseif arg == "--" then
 			i = i + 1
 			while i <= #args do
-				parsed.args[#parsed.args + 1] = args[i]
 				parsed.paths[#parsed.paths + 1] = args[i]
 				i = i + 1
 			end
