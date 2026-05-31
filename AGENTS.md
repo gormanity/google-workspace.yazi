@@ -26,6 +26,8 @@ default for repo operations.
   validating the current change.
 - Name each non-empty change with `jj describe` as soon as its purpose is clear.
 - Do not leave broad mixed changes for later cleanup.
+- After pushing any change, monitor GitHub Actions until the pushed commit's CI
+  run passes or fails, then report the result.
 
 ## Goal
 
@@ -52,6 +54,8 @@ The plugin should:
   bindable `cd-upload-dir` plugin command.
 - `tests/run`: automated integration test runner using fake Drive CLIs and an
   isolated Yazi config.
+- `.github/workflows/test.yml`: GitHub Actions workflow that installs the test
+  dependencies and runs `tests/run`.
 - `README.md`: current user-facing docs.
 - `LICENSE`: MIT license.
 

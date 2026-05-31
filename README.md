@@ -297,7 +297,8 @@ tests/run
 The suite uses fake `gws`, `gog`, and URL opener commands, so it does not touch
 Google Drive. It covers shortcut parsing, upload command construction,
 conversion behavior, overwrite policies, upload-directory resolution, generated
-helper sync, and a real Yazi launch that verifies plugin setup.
+helper sync, and a real Yazi launch that verifies plugin setup. GitHub Actions
+runs the same suite on pushes and pull requests.
 
 For quick syntax-only checks, run:
 

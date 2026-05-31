@@ -1,0 +1,63 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Integration tests
+    runs-on: ubuntu-latest
+
+    env:
+      YAZI_VERSION: v26.5.6
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            expect \
+            file \
+            jq \
+            lua5.4 \
+            unzip
+          sudo update-alternatives --install /usr/bin/lua lua /usr/bin/lua5.4 54
+          sudo update-alternatives --install /usr/bin/luac luac /usr/bin/luac5.4 54
+
+      - name: Install Yazi
+        run: |
+          yazi_zip="$RUNNER_TEMP/yazi.zip"
+          yazi_dir="$RUNNER_TEMP/yazi"
+
+          curl -fsSLo "$yazi_zip" \
+            "https://github.com/sxyazi/yazi/releases/download/${YAZI_VERSION}/yazi-x86_64-unknown-linux-gnu.zip"
+          unzip -q "$yazi_zip" -d "$yazi_dir"
+
+          yazi_bin_dir="$(find "$yazi_dir" -type f -name yazi -perm -111 -exec dirname {} \; | head -n 1)"
+          if [ -z "$yazi_bin_dir" ]; then
+            echo "Could not find yazi binary in release archive" >&2
+            exit 1
+          fi
+
+          echo "$yazi_bin_dir" >>"$GITHUB_PATH"
+
+      - name: Show tool versions
+        run: |
+          jq --version
+          lua -v
+          luac -v
+          expect -v
+          yazi --version
+          ya --version
+
+      - name: Run tests
+        run: tests/run
