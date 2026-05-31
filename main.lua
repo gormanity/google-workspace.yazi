@@ -656,7 +656,7 @@ end
 
 function M:redraw()
 	local lines = {
-		ui.Line("A Drive file with this name already exists."),
+		ui.Line("A Drive file with this name already exists in your default upload directory."),
 		ui.Line(""),
 		ui.Line({ ui.Span("Drive file: "):bold(), ui.Span(self.conflict_name or "") }),
 		ui.Line({ ui.Span("Local file: "):bold(), ui.Span(basename(self.conflict_path)) }),
