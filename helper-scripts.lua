@@ -656,6 +656,7 @@ upload_and_open() {
 
 	url=$(printf '%s\n' "$json" | json_field ".webViewLink")
 	id=$(printf '%s\n' "$json" | json_field ".id")
+	uploaded_name=$(printf '%s\n' "$json" | json_field ".name")
 
 	if [ -z "$url" ] && [ -n "$id" ] && [ -n "$target" ]; then
 		case "$target" in
@@ -681,9 +682,13 @@ upload_and_open() {
 	fi
 
 	if [ "$OPEN_AFTER_UPLOAD" = "1" ]; then
-		open_url "$url"
+		open_url "$url" || return 1
 	elif [ "$QUIET_NOTIFY" != "1" ]; then
-		notify "Google Workspace" "Uploaded $(basename "$path") to Google Drive."
+		notify "Google Workspace" "Uploaded ${uploaded_name:-$(basename "$path")} to Google Drive."
+	fi
+
+	if [ -n "$uploaded_name" ]; then
+		printf '%s\n' "$uploaded_name"
 	fi
 }
 

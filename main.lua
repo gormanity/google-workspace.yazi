@@ -514,7 +514,12 @@ local function run_open_helper(args)
 		return false
 	end
 
-	return true
+	local uploaded_name = tostring(output.stdout or ""):gsub("^%s+", ""):gsub("%s+$", "")
+	if uploaded_name == "" then
+		uploaded_name = nil
+	end
+
+	return true, uploaded_name
 end
 
 local function find_existing_file(path, parsed)
@@ -612,8 +617,9 @@ local function open_with_yazi(args)
 			helper_args[#helper_args + 1] = "--"
 			helper_args[#helper_args + 1] = path
 
-			if run_open_helper(helper_args) and uploads_file then
-				notify("info", "Uploaded " .. basename(path) .. " to Google Drive.")
+			local ok, uploaded_name = run_open_helper(helper_args)
+			if ok and uploads_file then
+				notify("info", "Uploaded " .. (uploaded_name or basename(path)) .. " to Google Drive.")
 			end
 		end
 	end
