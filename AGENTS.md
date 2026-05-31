@@ -191,8 +191,6 @@ If testing from an installed Yazi config, also run:
 yazi --debug
 ```
 
-Use `gws --dry-run` for request-shape checks before live uploads.
-
 ## Known External Artifacts
 
 During development, two tiny Google Drive test spreadsheets were created:

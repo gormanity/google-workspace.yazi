@@ -314,8 +314,6 @@ When testing from an installed Yazi config, also run:
 yazi --debug
 ```
 
-Use `gws --dry-run` for request-shape checks before live uploads.
-
 ## License
 
 MIT
