@@ -769,9 +769,9 @@ status=0
 for path do
 	ext=$(extension "$path") || ext=
 
-		case "$ext" in
-			gdoc | gdraw | gform | glink | gmap | gsheet | gsite | gslides)
-				url=$(workspace_url "$path" "$ext")
+	case "$ext" in
+		gdoc | gdraw | gform | glink | gmap | gsheet | gsite | gslides)
+			url=$(workspace_url "$path" "$ext")
 			if [ -n "$url" ]; then
 				open_url "$url" || status=1
 			else
