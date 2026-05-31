@@ -1,11 +1,7 @@
-# Project Handoff
+# Agent Instructions
 
 This repository is the standalone source for the Yazi plugin
-`google-workspace.yazi`. It was extracted from the user's dotfiles into:
-
-`~/Code/projects/google-workspace.yazi`
-
-The repository is initialized as a colocated Jujutsu/Git repo. Use `jj` by
+`google-workspace.yazi`. It is a colocated Jujutsu/Git repository; use `jj` by
 default for repo operations.
 
 ## Change Hygiene
@@ -29,7 +25,7 @@ default for repo operations.
 - After pushing any change, monitor GitHub Actions until the pushed commit's CI
   run passes or fails, then report the result.
 
-## Goal
+## Project Scope
 
 Provide a Yazi opener/plugin for Google Workspace and Google Drive workflows.
 
@@ -37,13 +33,14 @@ The plugin should:
 
 - Open Google Drive shortcut files (`.gdoc`, `.gsheet`, `.gslides`, etc.) from
   their embedded Drive URLs.
-- Upload local Office/spreadsheet files to Drive using `gws` from
-  `googleworkspace-cli`.
-- Convert only when explicitly configured.
-- Expose a bindable command to navigate Yazi to the configured Drive upload
-  directory.
+- Upload local files to Drive using either `gws` from `googleworkspace-cli` or
+  `gog` from `gogcli`.
+- Convert supported Office and OpenDocument files only when explicitly
+  configured.
+- Expose bindable commands to upload files, open the upload folder in the
+  browser, and navigate Yazi to the configured local Drive upload folder.
 
-## Current Files
+## Files And Invariants
 
 - `main.lua`: Yazi plugin entrypoint.
 - `helper-scripts.lua`: Lua source installed by `ya pkg`; it contains the shell
@@ -56,13 +53,13 @@ The plugin should:
   isolated Yazi config.
 - `.github/workflows/test.yml`: GitHub Actions workflow that installs the test
   dependencies and runs `tests/run`.
-- `README.md`: current user-facing docs.
+- `README.md`: user-facing documentation.
 - `LICENSE`: MIT license.
 
 `open` and `resolve-upload-dir` must remain executable and in sync with
 `helper-scripts.lua`.
 
-## Important Decisions
+## Architecture Decisions
 
 - Yazi plugins cannot self-register `[opener]` entries or keybindings.
 - Opener behavior belongs in `yazi.toml`, because Yazi `[opener]` entries are
@@ -140,19 +137,7 @@ google_workspace = [
 ]
 ```
 
-## Conversion Policy
-
-- Office files (`.xls`, `.xlsx`, `.docx`, `.pptx`, etc.) upload as original
-  Drive files by default.
-- Office and OpenDocument conversion only happens when `convert = true` or
-  `--convert` is set.
-
-Rationale: automatic conversion of Office files is surprising. The user
-specifically decided conversion must be opt-in.
-
-## Dependencies
-
-Runtime dependencies:
+## Runtime Dependencies
 
 - Yazi v25.2.7 or newer. The upload conflict dialog uses `Modal:children_add`
   and `Modal:children_remove`.
@@ -172,6 +157,16 @@ Platform-specific runtime behavior:
 
 Drive authentication must be completed in the chosen CLI before
 upload/conversion workflows.
+
+## Conversion Policy
+
+- Office files (`.xls`, `.xlsx`, `.docx`, `.pptx`, etc.) upload as original
+  Drive files by default.
+- Office and OpenDocument conversion only happens when `convert = true` or
+  `--convert` is set.
+
+Rationale: automatic conversion of Office files is surprising. The user
+specifically decided conversion must be opt-in.
 
 ## Validation Commands
 
@@ -198,7 +193,7 @@ yazi --debug
 
 Use `gws --dry-run` for request-shape checks before live uploads.
 
-## Known Test Artifacts
+## Known External Artifacts
 
 During development, two tiny Google Drive test spreadsheets were created:
 
