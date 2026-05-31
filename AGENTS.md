@@ -50,6 +50,8 @@ The plugin should:
   `[opener]` command.
 - `resolve-upload-dir`: development copy of the generated executable used by the
   bindable `cd-upload-dir` plugin command.
+- `tests/run`: automated integration test runner using fake Drive CLIs and an
+  isolated Yazi config.
 - `README.md`: current user-facing docs.
 - `LICENSE`: MIT license.
 
@@ -178,6 +180,7 @@ npx --yes prettier --config /Users/jmgorman/.dotfiles/prettier/.prettierrc.yaml 
 Run these after edits:
 
 ```sh
+tests/run
 sh -n open resolve-upload-dir
 luac -p main.lua helper-scripts.lua
 ```

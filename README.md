@@ -288,7 +288,18 @@ root.
 
 ## Development
 
-Run the lightweight checks after edits:
+Run the automated test suite after edits:
+
+```sh
+tests/run
+```
+
+The suite uses fake `gws`, `gog`, and URL opener commands, so it does not touch
+Google Drive. It covers shortcut parsing, upload command construction,
+conversion behavior, overwrite policies, upload-directory resolution, generated
+helper sync, and a real Yazi launch that verifies plugin setup.
+
+For quick syntax-only checks, run:
 
 ```sh
 sh -n open resolve-upload-dir

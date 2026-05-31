@@ -1,0 +1,30 @@
+#!/bin/sh
+
+set -u
+
+script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
+repo_root=$(CDPATH= cd "$script_dir/.." && pwd)
+TESTS=
+
+. "$script_dir/lib.sh"
+
+test_init
+
+for test_file in \
+	static \
+	main-setup \
+	shortcuts \
+	upload-gog \
+	overwrite \
+	upload-gws \
+	resolve-upload-dir \
+	yazi-smoke
+do
+	. "$script_dir/integration/$test_file.sh"
+done
+
+for test_name in $TESTS; do
+	run_test "$test_name"
+done
+
+test_summary
