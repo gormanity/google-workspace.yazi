@@ -154,7 +154,8 @@ specifically decided conversion must be opt-in.
 
 Runtime dependencies:
 
-- Yazi.
+- Yazi v25.2.7 or newer. The upload conflict dialog uses `Modal:children_add`
+  and `Modal:children_remove`.
 - One of the following Drive CLIs: `googleworkspace-cli`, providing `gws`, or
   `gogcli`, providing `gog`.
 - `jq`.

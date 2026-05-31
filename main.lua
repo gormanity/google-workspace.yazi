@@ -240,36 +240,6 @@ local function confirm_upload(path)
 	})
 end
 
-local function confirm_replace(path, name)
-	return ya.confirm({
-		pos = { "center", w = 76, h = 12 },
-		title = "Google Workspace",
-		body = table.concat({
-			"Replace the existing Drive file with the selected local file?",
-			"",
-			"Drive file: " .. name,
-			"Local file: " .. basename(path),
-			"",
-			'"Yes" replaces the Drive file. "No" shows upload options.',
-		}, "\n"),
-	})
-end
-
-local function confirm_upload_without_replace(path, name)
-	return ya.confirm({
-		pos = { "center", w = 76, h = 12 },
-		title = "Google Workspace",
-		body = table.concat({
-			"Upload a separate Drive file without replacing the existing file?",
-			"",
-			"Drive file: " .. name,
-			"Local file: " .. basename(path),
-			"",
-			'"Yes" uploads a separate file. "No" cancels the upload.',
-		}, "\n"),
-	})
-end
-
 local CONFLICT_DIALOG_OPTIONS = {
 	{
 		action = "replace",
@@ -345,21 +315,11 @@ local selected_conflict_dialog_action = ya.sync(function(self)
 	return option and option.action or "cancel"
 end)
 
-local function choose_conflict_action_with_confirm(path, name)
-	if confirm_replace(path, name) then
-		return "replace"
-	end
-	if confirm_upload_without_replace(path, name) then
-		return "keep"
-	end
-
-	return "cancel"
-end
-
 local function choose_conflict_action(path, name)
 	local ok, shown = pcall(show_conflict_dialog, path, name)
 	if not ok or not shown then
-		return choose_conflict_action_with_confirm(path, name)
+		notify("error", "Could not show upload conflict options.")
+		return "cancel"
 	end
 
 	local action = "cancel"

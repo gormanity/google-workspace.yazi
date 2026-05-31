@@ -16,7 +16,8 @@ A Yazi plugin and opener for Google Workspace and Google Drive workflows.
 
 ## Requirements
 
-- [`Yazi`](https://github.com/sxyazi/yazi)
+- [`Yazi`](https://github.com/sxyazi/yazi) v25.2.7 or newer. The in-Yazi upload
+  conflict dialog requires Yazi's modal child API.
 - One of the following Drive CLIs:
   - [`googleworkspace-cli`](https://github.com/googleworkspace/cli), providing
     `gws`
